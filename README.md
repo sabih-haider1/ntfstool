@@ -1,8 +1,7 @@
 # NTFS Tool - Free & Open Source Fork
 # Support Apple Silicon M1/M2/M3/M4 & Intel Macs
 
-<a href="https://github.com/ntfstool/ntfstool">
-  <img src="https://github.com/ntfstool/ntfstool/blob/1.0.2/static/github/256x256@2x.png?raw=true" /></a>
+![Icon](./screenshots/256x256@2x.png)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
