@@ -203,7 +203,3 @@ This is a free-use fork created with the explicit permission of the original aut
 ✅ Use for private purposes  
 
 **Attribution to the original author (Dr_rOot) must be maintained.**
-
----
-
-**Made with ❤️ by the NTFS Tool community**
