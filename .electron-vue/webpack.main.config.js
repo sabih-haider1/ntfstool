@@ -5,16 +5,44 @@ process.env.BABEL_ENV = 'main'
 const path = require('path')
 const { dependencies } = require('../package.json')
 const webpack = require('webpack')
-
-const BabiliWebpackPlugin = require('babili-webpack-plugin')
+const TerserPlugin = require('terser-webpack-plugin')
 
 let mainConfig = {
   entry: {
     main: path.join(__dirname, '../src/main/index.js')
   },
   externals: [
-    ...Object.keys(dependencies || {})
+    // Externalize all node_modules except renderer-specific ones
+    function({ context, request }, callback) {
+      // Don't bundle element-ui, element-plus, vue, vue-router, vuex, vue-i18n
+      // These are renderer-only libraries - return false to prevent them from being resolved
+      if (/^(element-ui|element-plus|vue|vue-router|vuex|vue-i18n)/.test(request)) {
+        // Return commonjs to externalize but it will fail at runtime
+        // Better to use resolve.alias to provide empty module
+        return callback(null, 'commonjs ' + request);
+      }
+      
+      // Externalize all other dependencies
+      if (dependencies && Object.keys(dependencies).includes(request)) {
+        return callback(null, 'commonjs ' + request);
+      }
+      
+      callback();
+    }
   ],
+  resolve: {
+    alias: {
+      '@': path.join(__dirname, '../src'),
+      // Provide empty module for renderer-only libraries that might be accidentally imported
+      'element-ui': path.join(__dirname, 'empty-module.js'),
+      'element-plus': path.join(__dirname, 'empty-module.js'),
+      'vue$': path.join(__dirname, 'empty-module.js'),
+      'vue-router': path.join(__dirname, 'empty-module.js'),
+      'vuex': path.join(__dirname, 'empty-module.js'),
+      'vue-i18n': path.join(__dirname, 'empty-module.js')
+    },
+    extensions: ['.js', '.json', '.node']
+  },
   module: {
     rules: [
       {
@@ -37,15 +65,7 @@ let mainConfig = {
     libraryTarget: 'commonjs2',
     path: path.join(__dirname, '../dist/electron')
   },
-  plugins: [
-    new webpack.NoEmitOnErrorsPlugin()
-  ],
-  resolve: {
-    alias: {
-      '@': path.join(__dirname, '../src'),
-    },
-    extensions: ['.js', '.json', '.node']
-  },
+  plugins: [],
   target: 'electron-main'
 }
 
@@ -64,12 +84,27 @@ if (process.env.NODE_ENV !== 'production') {
  * Adjust mainConfig for production settings
  */
 if (process.env.NODE_ENV === 'production') {
+  mainConfig.mode = 'production'
+  mainConfig.optimization = {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        parallel: true,
+        terserOptions: {
+          compress: {
+            drop_console: false
+          }
+        }
+      })
+    ]
+  }
   mainConfig.plugins.push(
-    new BabiliWebpackPlugin(),
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': '"production"'
     })
   )
+} else {
+  mainConfig.mode = 'development'
 }
 
 module.exports = mainConfig

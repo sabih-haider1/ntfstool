@@ -1,20 +1,21 @@
 /**
- * @author   service@ntfstool.com
- * Copyright (c) 2020 ntfstool.com
- * Copyright (c) 2020 alfw.com
+ * NTFS Tool - Free and Open Source Fork
+ * 
+ * @author   Dr_rOot (Original Author)
+ * @author   Community Contributors (Fork Maintainers)
+ * 
+ * Copyright (c) 2018-2020 Dr_rOot (Original Author)
+ * Copyright (c) 2025 NTFS Tool Community Contributors
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the MIT General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the MIT License as published in the LICENSE file.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * MIT General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * MIT License for more details.
  *
- * You should have received a copy of the MIT General Public License
- * along with this program (in the main directory of the NTFS Tool
- * distribution in the file COPYING); if not, write to the service@ntfstool.com
+ * This is a free-use fork created with permission from the original author.
+ * See FREE_USE_NOTICE.md for details.
  */
 require('./index')

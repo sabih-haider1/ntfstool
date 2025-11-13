@@ -49,7 +49,7 @@ export default {
     Submitoperatingdata: '実行データ、ログなどの情報を提出して、デバイス情報を把握し、アプリを改善するのに役立てます',
     sendfeedback: 'フィードバックを送信',
     Mounting: 'マウント中',
-    Automatically_mount_NTFS_disk: 'NTFSディスクを自動的にマウントする',
+    Automatically_mount_NTFS_disk: 'NTFSとExFATディスクを自動的にマウントする',
     NoMsg: 'メッセージなし',
     OuterDisk: '外部ディスク',
     Install: 'インストール',

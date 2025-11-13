@@ -147,6 +147,6 @@ export default {
     click_can_forbid:"クリックを禁止できます",
     cancel_usb_notify:"USB通知をキャンセルしますか？",
     canceled_usb_notify:"通知がキャンセルされました",
-    Automatically_mount_NTFS_disk:"NTFSディスクを自動的にマウントする",
+    Automatically_mount_NTFS_disk:"NTFSとExFATディスクを自動的にマウントする",
     Sorryitisnotsupported:"通常の権限を持つユーザーはまだサポートされていません（管理者アカウントを使用してソフトウェアを実行してください）",
 }

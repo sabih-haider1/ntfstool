@@ -1,29 +1,114 @@
 /**
- * @author   service@ntfstool.com
- * Copyright (c) 2020 ntfstool.com
- * Copyright (c) 2020 alfw.com
+ * NTFS Tool - Free and Open Source Fork
+ * 
+ * @author   Dr_rOot (Original Author)
+ * @author   Community Contributors (Fork Maintainers)
+ * 
+ * Copyright (c) 2018-2020 Dr_rOot (Original Author)
+ * Copyright (c) 2025 NTFS Tool Community Contributors
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the MIT General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the MIT License as published in the LICENSE file.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * MIT General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * MIT License for more details.
  *
- * You should have received a copy of the MIT General Public License
- * along with this program (in the main directory of the NTFS Tool
- * distribution in the file COPYING); if not, write to the service@ntfstool.com
+ * This is a free-use fork created with permission from the original author.
+ * See FREE_USE_NOTICE.md for details.
  */
 import {app, BrowserWindow, Menu, Tray, ipcMain, globalShortcut, crashReporter, screen, Notification} from 'electron'
 import {isDev} from "@/common/utils/AlfwCommon";
 import {AlConst} from "@/common/utils/AlfwConst";
+import {EventEmitter} from 'events';
 
-var usbDetect = require('usb-detection');
+const path = require('path');
+const url = require('url');
+const remoteMain = require('@electron/remote/main');
+
+// Safe import with fallback
+let usb;
+
+try {
+    usb = require('usb');
+} catch (error) {
+    console.error('USB module not available:', error.message);
+    usb = null;
+}
+
+// Create a wrapper to mimic usb-detection API
+class UsbDetector extends EventEmitter {
+    constructor() {
+        super();
+        this.monitoring = false;
+    }
+
+    startMonitoring() {
+        if (this.monitoring) return;
+        this.monitoring = true;
+        
+        // Safety check: ensure usb module is available
+        if (!usb || typeof usb.on !== 'function') {
+            console.warn('USB module not available - monitoring disabled');
+            return;
+        }
+        
+        try {
+            usb.on('attach', (device) => {
+                if (device && device.deviceDescriptor) {
+                    this.emit('add', {
+                        locationId: device.deviceAddress,
+                        vendorId: device.deviceDescriptor.idVendor,
+                        productId: device.deviceDescriptor.idProduct,
+                        deviceName: device.deviceDescriptor.iProduct || 'USB Device',
+                        manufacturer: device.deviceDescriptor.iManufacturer || 'Unknown',
+                        serialNumber: device.deviceDescriptor.iSerialNumber || '',
+                        deviceAddress: device.deviceAddress
+                    });
+                }
+            });
+
+            usb.on('detach', (device) => {
+                if (device && device.deviceDescriptor) {
+                    this.emit('remove', {
+                        locationId: device.deviceAddress,
+                        vendorId: device.deviceDescriptor.idVendor,
+                        productId: device.deviceDescriptor.idProduct,
+                        deviceName: device.deviceDescriptor.iProduct || 'USB Device',
+                        manufacturer: device.deviceDescriptor.iManufacturer || 'Unknown',
+                        serialNumber: device.deviceDescriptor.iSerialNumber || '',
+                        deviceAddress: device.deviceAddress
+                    });
+                }
+            });
+        } catch (error) {
+            console.error('Error starting USB monitoring:', error);
+            this.monitoring = false;
+        }
+    }
+
+    stopMonitoring() {
+        if (!this.monitoring) return;
+        this.monitoring = false;
+        
+        // Safety check: ensure usb module is available
+        if (!usb || typeof usb.removeAllListeners !== 'function') {
+            return;
+        }
+        
+        try {
+            usb.removeAllListeners('attach');
+            usb.removeAllListeners('detach');
+        } catch (error) {
+            console.error('Error stopping USB monitoring:', error);
+        }
+    }
+}
+
+const usbDetect = new UsbDetector();
+
 var fs = require("fs")
-var winURL;
 var homeWinHandle = null;
 var settingPageHandle = null;
 var dialogPageHandle = null;
@@ -34,66 +119,134 @@ var windowBounds = null;
 var exitAllStatus = true;
 const MaxBrowserWindowLimits = 50;
 
-if (isDev()) {
-    winURL = `http://localhost:9080`;
-} else {
-    winURL = `file://${__dirname}/index.html`;
-    global.__static = require('path').join(__dirname, '/static').replace(/\\/g, '\\\\')
+// Determine if we're in development or production
+const isDevMode = isDev();
+
+// Set up static path for production
+if (!isDevMode) {
+    // In production, __dirname will be inside app.asar/dist/electron or the packaged app
+    global.__static = path.join(__dirname, '..', 'static').replace(/\\/g, '\\\\');
+}
+
+/**
+ * Helper function to load window content properly in dev vs production.
+ * Uses hash-based routing for Vue Router compatibility.
+ * @param {BrowserWindow} window - The window to load content into
+ * @param {string} routePath - Optional route path (e.g., '/tray', 'setting')
+ */
+function loadWindowContent(window, routePath = '/') {
+    // Normalize the route so we always end up with formats like '/tray'
+    const normalizedRoute = routePath ? (routePath.startsWith('/') ? routePath : `/${routePath}`) : '/';
+    const hashSegment = normalizedRoute === '/' ? '#/' : `#${normalizedRoute}`;
+
+    // Add error handlers to detect load failures
+    window.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+        console.error(`[Window Load Error] Failed to load ${validatedURL}`);
+        console.error(`[Window Load Error] Code: ${errorCode}, Description: ${errorDescription}`);
+    });
+
+    window.webContents.on('did-finish-load', () => {
+        console.log(`[Window Load Success] Window loaded successfully`);
+    });
+
+    if (isDevMode) {
+        // Development: use loadURL with webpack-dev-server
+        // Vue Router uses hash-based routing with format: http://localhost:9080/#/route
+        const devURL = `http://localhost:9080/${hashSegment}`;
+        console.log('[DEV] Loading dev URL:', devURL);
+        
+        window.loadURL(devURL).then(() => {
+            console.log('[DEV] Successfully loaded:', devURL);
+        }).catch(err => {
+            console.error('[DEV] Failed to load dev URL:', devURL, err);
+        });
+    } else {
+        // Production: use url.format() to create proper file:// URL
+        // This ensures the app works correctly when packaged
+        const indexPath = path.join(__dirname, 'index.html');
+
+        if (!fs.existsSync(indexPath)) {
+            console.error('[PROD] index.html not found at expected path:', indexPath);
+            return;
+        }
+        
+        // Create file URL with proper format
+        const fileUrl = url.format({
+            pathname: indexPath,
+            protocol: 'file:',
+            slashes: true,
+            hash: normalizedRoute
+        });
+        
+        console.log('[PROD] Loading production file URL:', fileUrl);
+        
+        window.loadURL(fileUrl).then(() => {
+            console.log('[PROD] Successfully loaded:', fileUrl);
+        }).catch(err => {
+            console.error('[PROD] Failed to load file URL:', err);
+            // Fallback: try loadFile method
+            console.log('[PROD] Attempting fallback with loadFile...');
+            const fallbackOptions = normalizedRoute ? { hash: normalizedRoute } : {};
+            window.loadFile(indexPath, fallbackOptions).catch(fallbackErr => {
+                console.error('[PROD] Fallback also failed:', fallbackErr);
+            });
+        });
+    }
 }
 
 export function doChangeLangEvent(arg) {
     console.warn("ChangeLangEvent", arg);
-    if (homeWinHandle) {
+    if (homeWinHandle && !homeWinHandle.isDestroyed()) {
         homeWinHandle.send("ChangeLangEvent", arg);
     }
 
-    if (trayPageHandle) {
+    if (trayPageHandle && !trayPageHandle.isDestroyed()) {
         trayPageHandle.send("ChangeLangEvent", arg);
     }
 
-    if (dialogPageHandle) {
+    if (dialogPageHandle && !dialogPageHandle.isDestroyed()) {
         dialogPageHandle.send("ChangeLangEvent", arg);
     }
 
-    if (feedBackPageHandle) {
+    if (feedBackPageHandle && !feedBackPageHandle.isDestroyed()) {
         feedBackPageHandle.send("ChangeLangEvent", arg);
     }
 }
 
 export function doUpdateViewEvent(event, args) {
-    if (homeWinHandle) {
+    if (homeWinHandle && !homeWinHandle.isDestroyed()) {
         homeWinHandle.send(AlConst.GlobalViewUpdate);
     }
 
-    if (trayPageHandle) {
+    if (trayPageHandle && !trayPageHandle.isDestroyed()) {
         trayPageHandle.send(AlConst.GlobalViewUpdate);
     }
 }
 
 export function doCreteFileEvent(arg) {
-    if (homeWinHandle) {
+    if (homeWinHandle && !homeWinHandle.isDestroyed()) {
         homeWinHandle.send("CreteFileEvent", arg);
     }
 
-    if (trayPageHandle) {
+    if (trayPageHandle && !trayPageHandle.isDestroyed()) {
         trayPageHandle.send("CreteFileEvent", arg);
     }
 }
 
 export function doNotSudoerEvent(arg) {
-    if (dialogPageHandle) {
+    if (dialogPageHandle && !dialogPageHandle.isDestroyed()) {
         dialogPageHandle.send("NotSudoerEvent", arg);
     }
 }
 
 export function doUsbDeleteFileEvent(arg) {
-    if (homeWinHandle) {
+    if (homeWinHandle && !homeWinHandle.isDestroyed()) {
         homeWinHandle.send("UsbDeleteFileEvent", arg);
     }
 }
 
 export function doUsbAddFileEvent(arg) {
-    if (homeWinHandle) {
+    if (homeWinHandle && !homeWinHandle.isDestroyed()) {
         homeWinHandle.send("UsbAddFileEvent", arg);
     }
 }
@@ -163,17 +316,17 @@ export function openPageByName(name) {
         openSettingPage();
     } else if (name == "openAboutPage") {
         openDialogPage();
-        if(dialogPageHandle){
+        if(dialogPageHandle && !dialogPageHandle.isDestroyed()){
             dialogPageHandle.send("ShowDialogEvent", "showAbout");
         }
     } else if (name == "openSudoPage") {
         openDialogPage();
-        if(dialogPageHandle){
+        if(dialogPageHandle && !dialogPageHandle.isDestroyed()){
             dialogPageHandle.send("ShowDialogEvent", "showSudo");
         }
     } else if (name == "openInstallFusePage") {
         openDialogPage();
-        if(dialogPageHandle){
+        if(dialogPageHandle && !dialogPageHandle.isDestroyed()){
             dialogPageHandle.send("ShowDialogEvent", "showInstallFuse");
         }
     } else if (name == "openFeedBackPage") {
@@ -236,11 +389,18 @@ const openHomePage = (show_force) => {
             webPreferences: {
                 experimentalFeatures: true,
                 nodeIntegration: true,
+                contextIsolation: false,
+                enableRemoteModule: true,
+                webSecurity: false
             },
             // transparent: true
         })
 
-        homeWinHandle.loadURL(winURL);
+        // Enable @electron/remote for this window
+        remoteMain.enable(homeWinHandle.webContents);
+
+        // Load the window content (dev server or local file)
+        loadWindowContent(homeWinHandle);
 
         homeWinHandle.setMaxListeners(MaxBrowserWindowLimits)
 
@@ -258,9 +418,38 @@ const openHomePage = (show_force) => {
                 }
             }
 
-            if (isDev()) {
+            // Open DevTools automatically in development mode
+            if (isDevMode) {
                 homeWinHandle.webContents.openDevTools()
             }
+        })
+
+        // Add error handler to debug issues
+        homeWinHandle.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+            console.error('Home window failed to load:', {
+                errorCode,
+                errorDescription,
+                validatedURL,
+                isDevMode
+            });
+        })
+
+        homeWinHandle.webContents.on('crashed', (event, killed) => {
+            console.error('Home window crashed:', { killed, isDevMode });
+        })
+
+        homeWinHandle.webContents.on('did-finish-load', () => {
+            console.log('Home window loaded successfully in', isDevMode ? 'development' : 'production', 'mode');
+        })
+
+        // Log renderer console messages to main process
+        homeWinHandle.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            console.log(`[Renderer Console] ${message} (${sourceId}:${line})`);
+        })
+
+        // Log renderer errors
+        homeWinHandle.webContents.on('render-process-gone', (event, details) => {
+            console.error('Renderer process gone:', details);
         })
 
         homeWinHandle.on('close', (event) => {
@@ -296,13 +485,33 @@ const openTrayPage = () => {
             transparent: true,
             webPreferences: {
                 nodeIntegration: true,
+                contextIsolation: false,
+                enableRemoteModule: true,
                 backgroundThrottling: false
             }
         })
 
-        trayPageHandle.loadURL(winURL + "#tray")
+        // Enable @electron/remote for this window
+        remoteMain.enable(trayPageHandle.webContents);
+
+        // Load the tray page with hash route
+    loadWindowContent(trayPageHandle, '/tray');
 
         trayPageHandle.setMaxListeners(MaxBrowserWindowLimits)
+
+        // Add error handler
+        trayPageHandle.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+            console.error('Tray window failed to load:', {
+                errorCode,
+                errorDescription,
+                validatedURL,
+                isDevMode
+            });
+        })
+
+        trayPageHandle.webContents.on('did-finish-load', () => {
+            console.log('Tray window loaded successfully');
+        })
 
         trayPageHandle.once('ready-to-show', () => {
             windowBounds = trayPageHandle.getBounds();
@@ -332,7 +541,7 @@ const openTrayMenu = () => {
 
     tray.setPressedImage(iconUrl);
 
-    tray.setIgnoreDoubleClickEvents(true);//Very important to increase click speed
+    tray.setIgnoreDoubleClickEvents(false);
 
     tray.on('click', (event, trayBounds) => {
         if (trayPageHandle) {
@@ -349,6 +558,15 @@ const openTrayMenu = () => {
             exitAll();
         }
     })
+
+    // Add double-click to open main window
+    tray.on('double-click', () => {
+        if (homeWinHandle) {
+            homeWinHandle.show();
+            homeWinHandle.setSkipTaskbar(false);
+            app.dock.show();
+        }
+    })
 }
 
 const openSettingPage = (show_force) => {
@@ -356,7 +574,7 @@ const openSettingPage = (show_force) => {
         console.warn("create new settingPageHandle")
         settingPageHandle = new BrowserWindow({
             fullscreen: false,
-            height: 500,
+            height: 600,
             width: 750,
             useContentSize: true,
             center: true,
@@ -368,13 +586,29 @@ const openSettingPage = (show_force) => {
             maximizable: false,
             skipTaskbar: true,
             webPreferences: {
-                nodeIntegration: true
+                nodeIntegration: true,
+                contextIsolation: false,
+                enableRemoteModule: true
             }
         })
 
-        settingPageHandle.loadURL(winURL + "#setting")
+        // Enable @electron/remote for this window
+        remoteMain.enable(settingPageHandle.webContents);
+
+        // Load the settings page with hash route
+    loadWindowContent(settingPageHandle, '/setting');
 
         settingPageHandle.setMaxListeners(MaxBrowserWindowLimits)
+
+        // Add error handler
+        settingPageHandle.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+            console.error('Settings window failed to load:', {
+                errorCode,
+                errorDescription,
+                validatedURL,
+                isDevMode
+            });
+        })
 
         settingPageHandle.once('ready-to-show', () => {
             if (show_force !== "hide") {
@@ -409,22 +643,44 @@ const openDialogPage = (show_force) => {
             maximizable: false,
             alwaysOnTop: true,
             webPreferences: {
-                nodeIntegration: true
+                nodeIntegration: true,
+                contextIsolation: false,
+                enableRemoteModule: true
             }
         })
 
-        dialogPageHandle.loadURL(winURL + "#dialog")
+        // Enable @electron/remote for this window
+        remoteMain.enable(dialogPageHandle.webContents);
+
+        // Load the dialog page with hash route
+    loadWindowContent(dialogPageHandle, '/dialog');
 
         dialogPageHandle.setMaxListeners(MaxBrowserWindowLimits)
 
+        // Add error handler
+        dialogPageHandle.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+            console.error('Dialog window failed to load:', {
+                errorCode,
+                errorDescription,
+                validatedURL,
+                isDevMode
+            });
+        })
+
         dialogPageHandle.once('ready-to-show', () => {
             if (!fs.existsSync("/Library/Frameworks/OSXFUSE.framework")) {
-                dialogPageHandle.send("ShowDialogEvent", "showInstallFuse");
-                dialogPageHandle.show()
+                if(dialogPageHandle && !dialogPageHandle.isDestroyed()){
+                    dialogPageHandle.send("ShowDialogEvent", "showInstallFuse");
+                }
+                if(dialogPageHandle && !dialogPageHandle.isDestroyed()){
+                    dialogPageHandle.show()
+                }
             }
 
             if (show_force !== "hide") {
-                dialogPageHandle.show()
+                if(dialogPageHandle && !dialogPageHandle.isDestroyed()){
+                    dialogPageHandle.show()
+                }
             }
         })
 
@@ -463,13 +719,29 @@ const openFeedBackPage = (show_force) => {
             maximizable: false,
             skipTaskbar: true,
             webPreferences: {
-                nodeIntegration: true
+                nodeIntegration: true,
+                contextIsolation: false,
+                enableRemoteModule: true
             }
         })
 
-        feedBackPageHandle.loadURL(winURL + "#feedBack")
+        // Enable @electron/remote for this window
+        remoteMain.enable(feedBackPageHandle.webContents);
+
+        // Load the feedback page with hash route
+    loadWindowContent(feedBackPageHandle, '/feedBack');
 
         feedBackPageHandle.setMaxListeners(MaxBrowserWindowLimits)
+
+        // Add error handler
+        feedBackPageHandle.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+            console.error('Feedback window failed to load:', {
+                errorCode,
+                errorDescription,
+                validatedURL,
+                isDevMode
+            });
+        })
 
         feedBackPageHandle.once('ready-to-show', () => {
             if (show_force !== "hide") {
@@ -508,7 +780,9 @@ const _homeWinMenu = () => {
                 {
                     label: 'Share',
                     click: () => {
-                        trayPageHandle.send("OpenShare");
+                        if(trayPageHandle && !trayPageHandle.isDestroyed()){
+                            trayPageHandle.send("OpenShare");
+                        }
                     }
                 },
                 {type: 'separator'},

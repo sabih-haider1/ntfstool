@@ -27,14 +27,14 @@ import es from './es'
 import ru from './ru'
 import de from './de'
 
-import enLocale from 'element-ui/lib/locale/lang/en'
-import zhcnLocale from 'element-ui/lib/locale/lang/zh-CN'
-import zhtwLocale from 'element-ui/lib/locale/lang/zh-TW'
-import koLocale from 'element-ui/lib/locale/lang/ko'
-import jaLocale from 'element-ui/lib/locale/lang/ja'
-import esLocale from 'element-ui/lib/locale/lang/es'
-import ruLocale from 'element-ui/lib/locale/lang/ru-RU'
-import deLocale from 'element-ui/lib/locale/lang/de'
+import enLocale from 'element-plus/es/locale/lang/en'
+import zhcnLocale from 'element-plus/es/locale/lang/zh-cn'
+import zhtwLocale from 'element-plus/es/locale/lang/zh-tw'
+import koLocale from 'element-plus/es/locale/lang/ko'
+import jaLocale from 'element-plus/es/locale/lang/ja'
+import esLocale from 'element-plus/es/locale/lang/es'
+import ruLocale from 'element-plus/es/locale/lang/ru'
+import deLocale from 'element-plus/es/locale/lang/de'
 
 const languages_select = {
     languages: [

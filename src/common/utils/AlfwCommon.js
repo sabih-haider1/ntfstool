@@ -18,7 +18,6 @@
  * distribution in the file COPYING); if not, write to the service@ntfstool.com
  */
 import {execShell,execShellSudo} from '@/common/utils/AlfwShell'
-import {t} from 'element-ui/lib/locale'
 import {remote} from 'electron'
 import {ignoreItem,delIgnoreItem} from '@/common/utils/AlfwStore'
 import {app, ipcMain, ipcRenderer, Notification, dialog, shell, powerMonitor} from 'electron'
@@ -148,7 +147,7 @@ export function disableZoom(webFrame) {
         webFrame.setVisualZoomLevelLimits(1, 1);
         webFrame.setLayoutZoomLevelLimits(0, 0);
     } catch (e) {
-        saveLog.error(e.getError(), "disableZoom error");
+        saveLog.error(e.message || e, "disableZoom error");
     }
 }
 
@@ -250,7 +249,7 @@ export function queueExec(type, callback, timeout) {
 }
 
 /**
- * filterNtfsReadonlyByDiskList
+ * filterNtfsReadonlyByDiskList - Now includes ExFAT support
  * @param diskList
  * @returns {Array}
  */
@@ -265,8 +264,8 @@ export function filterNtfsNeedMountByDiskList(diskList) {
                 console.warn({list:diskList["ext"][i],ignorelist:ignoreItemList},
                     "ignoreChose false");
 
-                //NTFS needs to be remounted
-                if (_.get(diskList["ext"][i], "info.typebundle") == "ntfs") {
+                // NTFS and ExFAT need to be remounted
+                if (_.get(diskList["ext"][i], "info.typebundle") == "ntfs" || _.get(diskList["ext"][i], "info.typebundle") == "exfat") {
                     if (_.get(diskList["ext"][i], "info.readonly") == true || _.get(diskList["ext"][i], "info.mounted") == false) {
                         ret.push(diskList["ext"][i]);
                     }

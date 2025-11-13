@@ -143,6 +143,6 @@ export default {
     click_can_forbid:"點按可以停用",
     cancel_usb_notify:"取消 USB 通知?",
     canceled_usb_notify:"已取消通知",
-    Automatically_mount_NTFS_disk:"自動掛載 NTFS 磁碟",
+    Automatically_mount_NTFS_disk:"自動掛載 NTFS 和 ExFAT 磁碟",
     Sorryitisnotsupported:"抱歉，暫不支援普通權限使用者使用(請使用管理員賬戶運行軟件)",
 }

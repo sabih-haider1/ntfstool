@@ -26,7 +26,8 @@ import {AlConst} from '@/common/utils/AlfwConst'
 
 const {_} = require('lodash')
 
-import {ipcRenderer, remote} from 'electron'
+import {ipcRenderer} from 'electron'
+const remote = require('@electron/remote')
 
 const watchmac = require("watch-mac")
 

@@ -49,7 +49,7 @@ export default {
     Submitoperatingdata: "Soumettre des données d'exploitation, des journaux, etc., pour aider à comprendre les informations de votre appareil et à améliorer notre application",
     sendfeedback: "Envoyer le retour",
     Mounting: "Montage",
-    Automatically_mount_NTFS_disk: "Monter automatiquement le disque NTFS",
+    Automatically_mount_NTFS_disk: "Monter automatiquement le disque NTFS et ExFAT",
     NoMsg: "Aucun message",
     OuterDisk: "Disque externe",
     Install: "Installer",

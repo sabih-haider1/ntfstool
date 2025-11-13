@@ -17,9 +17,36 @@
  * along with this program (in the main directory of the NTFS Tool
  * distribution in the file COPYING); if not, write to the service@ntfstool.com
  */
-var events = require('events');
+
+// Safe import of events module
+let events;
+try {
+    events = require('events');
+    // Verify EventEmitter is available
+    if (!events || !events.EventEmitter) {
+        console.error('EventEmitter not available in events module');
+        events = null;
+    }
+} catch (error) {
+    console.error('Failed to load events module:', error.message);
+    events = null;
+}
+
 var event = null;
 
 export function alEvent(){
-    return event === null ? (event = new events.EventEmitter()) : event;
+    if (event === null) {
+        if (!events || !events.EventEmitter) {
+            console.warn('EventEmitter not available, creating stub');
+            // Return a minimal event emitter stub
+            event = {
+                emit: () => {},
+                on: () => {},
+                removeAllListeners: () => {}
+            };
+        } else {
+            event = new events.EventEmitter();
+        }
+    }
+    return event;
 }

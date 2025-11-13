@@ -68,7 +68,7 @@ export default {
     Submitoperatingdata: '提交運行數據、日誌等信息，幫助我們了解您的設備信息並改善我們的應用',
     sendfeedback: '發送反饋',
     Mounting: '正在裝載',
-    Automatically_mount_NTFS_disk: '自動掛載NTFS磁盤',
+    Automatically_mount_NTFS_disk: '自動掛載NTFS和ExFAT磁盤',
     NoMsg: '無',
     OuterDisk: '外部磁盤',
     Install: '安裝',

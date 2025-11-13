@@ -19,7 +19,6 @@
  */
 const saveLog = require('electron-log');
 import {exec} from 'child_process'
-import {t} from 'element-ui/lib/locale'
 import {ipcRenderer, remote} from 'electron'
 import {noticeTheSystemError} from '@/common/utils/AlfwCommon'
 import {savePassword,getSudoPwd} from '@/common/utils/AlfwStore'

@@ -18,7 +18,8 @@
  * distribution in the file COPYING); if not, write to the service@ntfstool.com
  */
 
-import {app, ipcRenderer, remote} from 'electron'
+import {app, ipcRenderer} from 'electron'
+const remote = require('@electron/remote')
 import {getPackageVersion, disableZoom, choseDefaultNode, getSystemInfo} from '@/common/utils/AlfwCommon.js'
 import {
     clearPwd,
@@ -41,12 +42,17 @@ import {fsListenMount, updateDisklist, test} from '@/renderer/lib/diskMonitor'
 import {AlConst} from "@/common/utils/AlfwConst";
 
 export default {
+    name: 'Home',
     components: {},
     data() {
         return {
             activeTab: 'tab1',
             devices: [],
-            diskList: [],
+            diskList: {
+                inner: [],
+                ext: [],
+                image: []
+            },
             loading: 0,
             version: "1.0.0",
             menu_box1: false,
@@ -72,6 +78,10 @@ export default {
     },
     mounted() {
         var _this = this;
+
+        console.log('[Home.vue] Component mounted - initializing...')
+        console.log('[Home.vue] Initial diskList:', this.diskList)
+        console.log('[Home.vue] Initial select_item:', this.select_item)
 
         console.warn("getMountType", getMountType());
 
@@ -178,9 +188,10 @@ export default {
             try {
                 var _this = this;
                 _this.loading = -1;
+                console.log('[Home.vue] refreshDevice() called, updating disk list...')
                 updateDisklist(function () {
                     _this.loading = 0;
-
+                    console.log('[Home.vue] updateDisklist callback - diskList updated:', _this.diskList)
                     _this.firstTime = false;
                 });
             } catch (e) {
@@ -189,11 +200,14 @@ export default {
 
             //first time to show
             if(this.firstTime){
+                console.log('[Home.vue] First time - loading cache')
                 this.firstTime = false;
                 //show cache
                 var cacheValue = getStoreForDiskList();
+                console.log('[Home.vue] Cache value:', cacheValue)
                 if(cacheValue && typeof cacheValue.inner != "undefined"){
                     this.diskList = cacheValue;
+                    console.log('[Home.vue] Applied cache to diskList:', this.diskList)
                     if (!_.get(this.select_item, "name") && !_.get(this.select_item, "type")) {
                         if (_.get(this.diskList, "inner[0]")) {
                             this.select_item = _.get(this.diskList, "inner[0]");

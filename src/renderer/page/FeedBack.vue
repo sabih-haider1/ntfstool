@@ -1,5 +1,5 @@
 <template>
-    <el-container class="main-box">
+    <div class="main-box">
         <header class="header">
             <div>NTFS Tool {{$t('feedback')}}</div>
         </header>
@@ -65,7 +65,7 @@
                 </div>
             </div>
         </div>
-    </el-container>
+    </div>
 </template>
 <script>
     const {shell, ipcRenderer, remote} = require('electron')

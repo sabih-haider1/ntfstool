@@ -49,7 +49,7 @@ export default {
     "Submitoperatingdata": "Submit Operating Data, Logs, and Other Information to Help Understand Your Device Information and Improve Our Application",
     "sendfeedback": "Send Feedback",
     "Mounting": "Mounting",
-    "Automatically_mount_NTFS_disk": "Automatically Mount NTFS Disk",
+    "Automatically_mount_NTFS_disk": "Automatically Mount NTFS and ExFAT Disk",
     "NoMsg": "No Message",
     "OuterDisk": "External Disk",
     "Install": "Install",
@@ -107,4 +107,5 @@ export default {
     reinstall: "Reinstall",
     checked_kext_sign_err: "Checked Kext Sign Err",
     agree_text: "Agree Text",
+    OnlySupportedDisksneedtobemounted: "Only NTFS and ExFAT drives are supported for mounting.",
 }

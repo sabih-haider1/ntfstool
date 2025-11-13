@@ -17,7 +17,8 @@
  * along with this program (in the main directory of the NTFS Tool
  * distribution in the file COPYING); if not, write to the service@ntfstool.com
  */
-const {shell, ipcRenderer, remote} = require('electron')
+const {shell, ipcRenderer} = require('electron')
+const remote = require('@electron/remote')
 const saveLog = require('electron-log');
 import {disableZoom, noticeTheSystemError, getSystemInfo, getPackageVersion} from '@/common/utils/AlfwCommon'
 import {checkSudoPassword, systemName} from '@/common/utils/AlfwShell'

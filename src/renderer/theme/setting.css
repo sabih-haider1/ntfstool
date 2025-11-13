@@ -40,20 +40,26 @@
 }
 
 .main-from {
-    display: inline-flex;
+    display: flex;
     flex-direction: column;
     margin: 10px 30px;
     text-align: left;
-
+    width: calc(100% - 60px);
 }
 
 
 .el-checkbox {
     color: #0a0a0a;
-    font-size: 12px;
+    font-size: 13px;
     cursor: pointer;
     user-select: none;
-    line-height: 26px;
+    line-height: 22px;
+    padding: 4px 0;
+}
+
+.el-checkbox__label {
+    font-weight: 400;
+    color: #333;
 }
 
 .tab_active {
@@ -102,7 +108,10 @@
 
 .lmain {
     padding: 0;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: calc(100vh - 80px);
+    height: auto;
 }
 
 .lm-t {
@@ -223,6 +232,7 @@
     margin-right: 10px;
     border-top-left-radius: 3px;
     border-top-right-radius: 3px;
+    -webkit-app-region: no-drag;
 }
 
 
@@ -388,11 +398,24 @@
 }
 
 .al_select {
+    padding: 6px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: white;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
 
+.al_select:hover {
+    border-color: #9ca3af;
 }
 
 .al_select:focus {
     outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .block1_table tr td:first-child {
@@ -437,7 +460,7 @@
 .main-from_div_1_1 {
     width: 50%;
     position: relative;
-    /*background: green*/
+    padding-right: 20px;
 }
 
 .main-from_div_1_1-div {
@@ -508,7 +531,8 @@
 }
 
 .al_select_lang {
-    width: 150px;
+    width: 220px;
+    min-width: 200px;
 }
 
 .main-from-b4 {

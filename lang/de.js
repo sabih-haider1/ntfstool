@@ -49,7 +49,7 @@ export default {
     "Submitoperatingdata": "Betriebsdaten, Logs und andere Informationen einreichen, um Ihr Gerät besser zu verstehen und unsere Anwendung zu verbessern",
     "sendfeedback": "Feedback senden",
     "Mounting": "Einbinden",
-    "Automatically_mount_NTFS_disk": "NTFS-Festplatte automatisch einbinden",
+    "Automatically_mount_NTFS_disk": "NTFS- und ExFAT-Festplatte automatisch einbinden",
     "NoMsg": "Keine Nachricht",
     "OuterDisk": "Externe Festplatte",
     "Install": "Installieren",

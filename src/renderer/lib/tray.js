@@ -19,7 +19,8 @@ import {AlConst} from "@/common/utils/AlfwConst";
  * along with this program (in the main directory of the NTFS Tool
  * distribution in the file COPYING); if not, write to the service@ntfstool.com
  */
-const {shell, ipcRenderer, remote} = require('electron')
+const {shell, ipcRenderer} = require('electron')
+const remote = require('@electron/remote')
 
 import {openLog, getPackageVersion} from '@/common/utils/AlfwCommon.js'
 import {getStoreForDiskList} from "@/common/utils/AlfwStore";

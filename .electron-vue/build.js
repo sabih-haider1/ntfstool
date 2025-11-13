@@ -2,7 +2,7 @@
 
 process.env.NODE_ENV = 'production'
 
-const { say } = require('cfonts')
+const cfonts = require('cfonts')
 const chalk = require('chalk')
 const del = require('del')
 const { spawn } = require('child_process')
@@ -120,7 +120,7 @@ function greeting () {
   else text = false
 
   if (text && !isCI) {
-    say(text, {
+    cfonts.say(text, {
       colors: ['yellow'],
       font: 'simple3d',
       space: false

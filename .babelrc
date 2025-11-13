@@ -3,37 +3,47 @@
   "env": {
     "test": {
       "presets": [
-        ["env", {
-          "targets": { "node": 7 }
-        }],
-        "stage-0"
+        ["@babel/preset-env", {
+          "targets": { "node": "20" }
+        }]
       ],
       "plugins": ["istanbul"]
     },
     "main": {
       "presets": [
-        ["env", {
-          "targets": { "node": 7 }
-        }],
-        "stage-0"
+        ["@babel/preset-env", {
+          "targets": { "node": "20" }
+        }]
+      ],
+      "plugins": [
+        "@babel/plugin-proposal-object-rest-spread"
       ]
     },
     "renderer": {
       "presets": [
-        ["env", {
-          "modules": false
-        }],
-        "stage-0"
+        ["@babel/preset-env", {
+          "modules": false,
+          "targets": {
+            "electron": "33"
+          }
+        }]
+      ],
+      "plugins": [
+        "@babel/plugin-proposal-object-rest-spread"
       ]
     },
     "web": {
       "presets": [
-        ["env", {
-          "modules": false
-        }],
-        "stage-0"
+        ["@babel/preset-env", {
+          "modules": false,
+          "targets": {
+            "browsers": ["last 2 versions"]
+          }
+        }]
+      ],
+      "plugins": [
+        "@babel/plugin-proposal-object-rest-spread"
       ]
     }
-  },
-  "plugins": ["transform-runtime"]
+  }
 }

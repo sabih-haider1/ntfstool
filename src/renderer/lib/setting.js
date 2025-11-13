@@ -22,7 +22,7 @@ import {ipcRenderer, shell} from 'electron'
 
 const Store = require('electron-store');
 const store = new Store();
-const {remote} = require('electron')
+const remote = require('@electron/remote')
 var get = require('get');
 const saveLog = require('electron-log');
 

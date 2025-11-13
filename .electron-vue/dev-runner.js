@@ -48,32 +48,93 @@ function startRenderer () {
       heartbeat: 2500 
     })
 
-    compiler.plugin('compilation', compilation => {
-      compilation.plugin('html-webpack-plugin-after-emit', (data, cb) => {
-        hotMiddleware.publish({ action: 'reload' })
-        cb()
-      })
-    })
-
-    compiler.plugin('done', stats => {
-      logStats('Renderer', stats)
-    })
-
-    const server = new WebpackDevServer(
-      compiler,
-      {
-        contentBase: path.join(__dirname, '../'),
-        quiet: true,
-        before (app, ctx) {
-          app.use(hotMiddleware)
-          ctx.middleware.waitUntilValid(() => {
-            resolve()
+    // Webpack 5 compatible hooks API
+    if (compiler.hooks && compiler.hooks.compilation) {
+      compiler.hooks.compilation.tap('DevRunner', compilation => {
+        const HtmlWebpackPlugin = require('html-webpack-plugin')
+        const hooks = HtmlWebpackPlugin.getHooks(compilation)
+        
+        if (hooks && hooks.afterEmit) {
+          hooks.afterEmit.tapAsync('DevRunner', (data, cb) => {
+            hotMiddleware.publish({ action: 'reload' })
+            cb()
           })
         }
-      }
+      })
+    } else if (typeof compiler.plugin === 'function') {
+      // Fallback for Webpack 4
+      compiler.plugin('compilation', compilation => {
+        compilation.plugin('html-webpack-plugin-after-emit', (data, cb) => {
+          hotMiddleware.publish({ action: 'reload' })
+          cb()
+        })
+      })
+    }
+
+    if (compiler.hooks && compiler.hooks.done) {
+      compiler.hooks.done.tap('DevRunner', stats => {
+        logStats('Renderer', stats)
+      })
+    } else if (typeof compiler.plugin === 'function') {
+      compiler.plugin('done', stats => {
+        logStats('Renderer', stats)
+      })
+    }
+
+    const server = new WebpackDevServer(
+      {
+        static: {
+          directory: path.join(__dirname, '../')
+        },
+        setupMiddlewares: (middlewares, devServer) => {
+          // Add hot middleware at the beginning
+          devServer.app.use(hotMiddleware)
+          return middlewares
+        },
+        hot: true,
+        compress: true,
+        port: 9080,
+        host: 'localhost',
+        // Fix for Electron: allow all hosts to prevent WebSocket disconnections
+        allowedHosts: 'all',
+        // Use 'ws' for better compatibility with Electron
+        webSocketServer: {
+          type: 'ws',
+          options: {
+            // Allow multiple connections from same client (multiple Electron windows)
+            perMessageDeflate: false,
+            clientTracking: true
+          }
+        },
+        client: {
+          logging: 'info',
+          overlay: {
+            errors: true,
+            warnings: false
+          },
+          // Enable reconnection with reasonable retry limit
+          reconnect: 5,
+          // Ensure WebSocket connects to the correct URL in Electron
+          webSocketURL: {
+            hostname: 'localhost',
+            pathname: '/ws',
+            port: 9080,
+            protocol: 'ws'
+          }
+        }
+      },
+      compiler
     )
 
-    server.listen(9080)
+    // Wait for compilation to finish before resolving
+    compiler.hooks.done.tap('DevRunnerReady', () => {
+      resolve()
+    })
+
+    server.start().catch(err => {
+      console.error('Failed to start dev server:', err)
+      reject(err)
+    })
   })
 }
 
@@ -83,11 +144,21 @@ function startMain () {
 
     const compiler = webpack(mainConfig)
 
-    compiler.plugin('watch-run', (compilation, done) => {
-      logStats('Main', chalk.white.bold('compiling...'))
-      hotMiddleware.publish({ action: 'compiling' })
-      done()
-    })
+    // Webpack 5 compatible hooks API
+    if (compiler.hooks && compiler.hooks.watchRun) {
+      compiler.hooks.watchRun.tapAsync('DevRunner', (compilation, done) => {
+        logStats('Main', chalk.white.bold('compiling...'))
+        hotMiddleware.publish({ action: 'compiling' })
+        done()
+      })
+    } else if (typeof compiler.plugin === 'function') {
+      // Fallback for Webpack 4
+      compiler.plugin('watch-run', (compilation, done) => {
+        logStats('Main', chalk.white.bold('compiling...'))
+        hotMiddleware.publish({ action: 'compiling' })
+        done()
+      })
+    }
 
     compiler.watch({}, (err, stats) => {
       if (err) {

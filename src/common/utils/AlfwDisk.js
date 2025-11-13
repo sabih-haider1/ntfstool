@@ -32,7 +32,7 @@ import {noticeTheSystemError} from '@/common/utils/AlfwCommon'
 
 export function autoMountNtfsDisk(mountInfo,cb) {
     try{
-        console.warn(mountInfo,"mountInfo")
+        console.warn(mountInfo,"mountInfo - supporting NTFS and ExFAT")
         reMountNtfs(mountInfo.index).then(function () {
             cb();
         }).catch(function () {
@@ -46,7 +46,7 @@ export function autoMountNtfsDisk(mountInfo,cb) {
 }
 
 /**
- * reMountNtfs
+ * reMountNtfs - Now supports both NTFS and ExFAT
  * @param index
  * @param force
  * @returns {Promise<any>}
@@ -65,9 +65,10 @@ function reMountNtfs(index, force = false) {
                 return false;
             }
 
-            if (info.typebundle != "ntfs") {
+            // Support both NTFS and ExFAT file systems
+            if (info.typebundle != "ntfs" && info.typebundle != "exfat") {
                 reMountLock[index] = false;
-                reject("not is ntfs disk[" + index + "]!");
+                reject("not a supported disk type (NTFS or ExFAT)[" + index + "]!");
                 return;
             }
 
@@ -128,35 +129,59 @@ function reMountNtfs(index, force = false) {
                 }
 
                 console.warn("UseMountType:Inner")
-                var run_res = await execShellSudo(`mount_ntfs -o rw,auto,nobrowse,noowners,noatime ${link_dev} '${mount_path}'`);
+                // Mount based on file system type
+                if(info.typebundle == "ntfs"){
+                    var run_res = await execShellSudo(`mount_ntfs -o rw,auto,nobrowse,noowners,noatime ${link_dev} '${mount_path}'`);
+                } else if(info.typebundle == "exfat"){
+                    // ExFAT native support - use diskutil mount (NO SUDO NEEDED)
+                    var run_res = await execShell(`diskutil mount -mountPoint '${mount_path}' ${link_dev}`);
+                }
             }else{
                 console.warn("UseMountType:Outer")
-                // unclear -o remove_hiberfile
-                if(fixUnclear(index) === true){
-                    console.warn("fixUnclear mode to mount",index);
-                    var run_res = await execShellSudo(`${ntfstool_bin} ${link_dev} '${mount_path}' -o volname='${volumename}' -o remove_hiberfile -olocal -oallow_other   -o auto_xattr -o hide_hid_files`);
-                }else{
-                    var run_res = await execShellSudo(`${ntfstool_bin} ${link_dev} '${mount_path}' -o volname='${volumename}'  -olocal -oallow_other   -o auto_xattr -o hide_hid_files`);
+                // Mount based on file system type
+                if(info.typebundle == "ntfs"){
+                    // unclear -o remove_hiberfile
+                    if(fixUnclear(index) === true){
+                        console.warn("fixUnclear mode to mount",index);
+                        var run_res = await execShellSudo(`${ntfstool_bin} ${link_dev} '${mount_path}' -o volname='${volumename}' -o remove_hiberfile -olocal -oallow_other   -o auto_xattr -o hide_hid_files`);
+                    }else{
+                        var run_res = await execShellSudo(`${ntfstool_bin} ${link_dev} '${mount_path}' -o volname='${volumename}'  -olocal -oallow_other   -o auto_xattr -o hide_hid_files`);
+                    }
+                } else if(info.typebundle == "exfat"){
+                    // ExFAT native support - use diskutil mount (NO SUDO NEEDED)
+                    var run_res = await execShell(`diskutil mount -mountPoint '${mount_path}' ${link_dev}`);
                 }
 
             }
 
             watchStatus(true);
 
-            console.log(run_res, "run_res mount_ntfs");
+            console.log(run_res, "run_res mount");
 
-
-            var check_res2 = await execShell("mount |grep '" + index + "'");
-            if (check_res2 && check_res2.indexOf("read-only") <= 0) {
+            // Verify mount succeeded
+            // Check if the volume is actually mounted by looking at diskutil info
+            var verifyMount = await execShell(`diskutil info ${index}`);
+            var isMounted = verifyMount && verifyMount.indexOf("Mounted:") >= 0 && verifyMount.indexOf("Mounted:              Yes") >= 0;
+            
+            if (isMounted) {
                 reMountLock[index] = false;
                 setDiskMountPrending(index,0)
-                console.warn("start to mount disk...[ok]",link_dev)
-
+                console.warn(`✓ Mount succeeded: ${link_dev} (${info.typebundle})`)
                 resolve("succ[" + index + "]");
             } else {
-                setDiskMountPrending(index,-99)
-                reMountLock[index] = false;
-                reject("mount fail[" + index + "]");
+                // Fallback check for NTFS using mount command
+                var check_res2 = await execShell("mount |grep '" + index + "'");
+                if (check_res2 && check_res2.indexOf("read-only") <= 0) {
+                    reMountLock[index] = false;
+                    setDiskMountPrending(index,0)
+                    console.warn(`✓ Mount succeeded: ${link_dev} (${info.typebundle})`)
+                    resolve("succ[" + index + "]");
+                } else {
+                    setDiskMountPrending(index,-99)
+                    reMountLock[index] = false;
+                    console.error(`✗ Mount failed: ${link_dev} (${info.typebundle})`)
+                    reject("mount fail[" + index + "]");
+                }
             }
         } catch (e) {
             reMountLock[index] = false;
@@ -218,8 +243,17 @@ export function mountDisk(item) {
         try {
             //del ignore item
             delIgnoreItem(item.index);
-            if (typeof item.info.typebundle != "undefined" && item.info.typebundle == "ntfs") {
-                console.warn(item.index, "[ntfs mount]mountDisk start +++++++++++++++++++++TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+            
+            // Check if disk is already mounted
+            if (typeof item.info.mounted != "undefined" && item.info.mounted) {
+                console.warn(item.index, "[already mounted] No action needed")
+                reject("not need mount");
+                return;
+            }
+            
+            // Support both NTFS and ExFAT
+            if (typeof item.info.typebundle != "undefined" && (item.info.typebundle == "ntfs" || item.info.typebundle == "exfat")) {
+                console.warn(item.index, `[${item.info.typebundle} mount]mountDisk start +++++++++++++++++++++TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT`)
                 reMountNtfs(item.index, true).then((res) => {
                     resolve(res);
                 }).catch((err) => {
@@ -227,7 +261,9 @@ export function mountDisk(item) {
                 });
                 return;
             }
-            //No other disks need to be mounted temporarily
+            
+            // Non-supported disks (FAT32, APFS, HFS+) are auto-mounted by macOS
+            console.warn(item.index, `[${item.info.typebundle || 'unknown'}] Non-NTFS/ExFAT disk - macOS handles mounting automatically`)
             reject("not need mount");
         } catch (e) {
             saveLog.error(e, "mountDisk");
@@ -237,21 +273,21 @@ export function mountDisk(item) {
 }
 
 /**
- * umount the disk
+ * umount the disk - Supports NTFS and ExFAT
  * @param item
  * @returns {Promise<any>}
  */
 export function uMountDisk(item) {
-    console.warn(item, "mountDisk start +++++++++++++++++++++TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+    console.warn(item, "uMountDisk start +++++++++++++++++++++TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
     return new Promise(async (resolve, reject) => {
         try {
             //add ignore item
             ignoreItem(item.index);
 
             var dev_path = "/dev/" + item.index;
-            //NTFS
-            if (typeof item.info.typebundle != "undefined" && item.info.typebundle == "ntfs") {
-                console.warn(item, "[NTFS]uMountDisk start +++++++++++++++++++++TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+            // NTFS and ExFAT unmounting
+            if (typeof item.info.typebundle != "undefined" && (item.info.typebundle == "ntfs" || item.info.typebundle == "exfat")) {
+                console.warn(item, `[${item.info.typebundle.toUpperCase()}]uMountDisk start +++++++++++++++++++++TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT`)
                 resolve(await execShellSudo(`umount ${dev_path}`));
             } else {
                 console.warn(item, "eject uMountDisk start +++++++++++++++++++++TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")

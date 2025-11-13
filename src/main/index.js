@@ -1,25 +1,41 @@
 /**
- * @author   service@ntfstool.com
- * Copyright (c) 2020 ntfstool.com
- * Copyright (c) 2020 alfw.com
+ * NTFS Tool - Free and Open Source Fork
+ * 
+ * @author   Dr_rOot (Original Author)
+ * @author   Community Contributors (Fork Maintainers)
+ * 
+ * Copyright (c) 2018-2020 Dr_rOot (Original Author)
+ * Copyright (c) 2025 NTFS Tool Community Contributors
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the MIT General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the MIT License as published in the LICENSE file.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * MIT General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * MIT License for more details.
  *
- * You should have received a copy of the MIT General Public License
- * along with this program (in the main directory of the NTFS Tool
- * distribution in the file COPYING); if not, write to the service@ntfstool.com
+ * This is a free-use fork created with permission from the original author.
+ * See FREE_USE_NOTICE.md for details.
  */
-import {app, ipcMain, ipcRenderer, Notification, dialog, shell, powerMonitor} from 'electron'
+
+// Global error handler for uncaught prototype errors
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    if (error.message && error.message.includes('prototype')) {
+        console.error('Prototype access error detected. This usually means a module failed to load correctly.');
+        console.error('Stack:', error.stack);
+    }
+    // Don't exit - try to continue running
+});
+
+import {app, ipcMain, Notification, dialog, shell, powerMonitor} from 'electron'
 
 const saveLog = require('electron-log');
+const remoteMain = require('@electron/remote/main');
+
+// Initialize @electron/remote
+remoteMain.initialize();
 
 import {checkNeedInitStore, setDefaultStore, InitSystemInfo, getStore} from '../common/utils/AlfwStore.js'
 
@@ -44,8 +60,28 @@ process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = '1';
 
 app.allowRendererProcessReuse = true;
 
+// Track child processes for cleanup
+const childProcesses = [];
+
+// Helper to kill all child processes
+function killAllChildProcesses() {
+    childProcesses.forEach(proc => {
+        try {
+            if (proc && !proc.killed) {
+                proc.kill();
+            }
+        } catch (e) {
+            console.error('Failed to kill child process:', e);
+        }
+    });
+    childProcesses.length = 0;
+}
+
 try {
+    // App ready event
     app.on('ready', () => {
+        console.log('App ready - initializing...');
+        
         InitSystemInfo();
 
         if (checkNeedInitStore()) {
@@ -77,17 +113,58 @@ try {
         })
     })
 
+    // Handle window-all-closed - quit on all platforms (including macOS)
+    app.on('window-all-closed', () => {
+        console.log('All windows closed - quitting app');
+        // Quit the app when all windows are closed, even on macOS
+        app.quit();
+    })
 
-    app.on('before-quit', () => {
+    // Handle activate event (macOS) - recreate window if none exist
+    app.on('activate', () => {
+        console.log('App activate event (macOS)');
+        // On macOS, re-open window when dock icon is clicked and no windows are open
+        openPageByName("openHomePage");
+    })
+
+    // Handle before-quit event
+    app.on('before-quit', (event) => {
+        console.log('App before-quit event');
         exitAll();
     })
 
-    //for ctrl + c exit
-    process.on("SIGINT", function () {
-        console.log('WTF')
-        exitAll();
-        process.exit(0)
+    // Handle will-quit event - last chance to cleanup
+    app.on('will-quit', (event) => {
+        console.log('App will-quit event - cleaning up processes');
+        killAllChildProcesses();
+    })
 
+    // Handle app quit event
+    app.on('quit', () => {
+        console.log('App quit event - final cleanup');
+        killAllChildProcesses();
+    })
+
+    // Handle SIGINT (Ctrl+C) in terminal
+    process.on('SIGINT', () => {
+        console.log('SIGINT received - cleaning up');
+        killAllChildProcesses();
+        exitAll();
+        process.exit(0);
+    })
+
+    // Handle SIGTERM
+    process.on('SIGTERM', () => {
+        console.log('SIGTERM received - cleaning up');
+        killAllChildProcesses();
+        exitAll();
+        process.exit(0);
+    })
+
+    // Handle process exit
+    process.on('exit', (code) => {
+        console.log(`Process exiting with code: ${code}`);
+        killAllChildProcesses();
     });
 
     //Main process listen message
