@@ -857,7 +857,7 @@ const _homeWinMenu = () => {
                 {
                     label: 'Learn More',
                     click() {
-                        require('electron').shell.openExternal('https://ntfstool.com')
+                        require('electron').shell.openExternal('https://sabih-ssy.vercel.app/')
                     }
                 }
             ]

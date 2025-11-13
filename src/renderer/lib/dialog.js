@@ -133,7 +133,7 @@ export default {
         },
         //about_box method
         openMainsite() {
-            shell.openExternal("https://www.ntfstool.com")
+            shell.openExternal("https://sabih-ssy.vercel.app/")
         },
         openGitHub() {
             shell.openExternal("https://github.com/ntfstool/ntfstool")

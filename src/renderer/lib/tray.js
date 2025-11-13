@@ -146,7 +146,7 @@ export default {
             remote.getCurrentWindow().setSize(380, height0 + height + 30)
         },
         openWebsite: () => {
-            shell.openExternal("http://www.ntfstool.com")
+            shell.openExternal("https://sabih-ssy.vercel.app/")
         },
         openSettingPage() {
             this.menu_box1 = false;

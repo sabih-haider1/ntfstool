@@ -36,11 +36,11 @@ This fork has been significantly modernized and enhanced with:
 
 NTFS Tool provides seamless NTFS read and write support for macOS. It enables full read/write access to Windows NTFS-formatted drives on your Mac without any limitations.
 
-✈️ [GitHub Repository](https://github.com/ntfstool/ntfstool) | 📖 [Documentation](./FREE_USE_NOTICE.md) | 🐛 [Report Issues](https://github.com/ntfstool/ntfstool/issues)
+✈️ [GitHub Repository](https://github.com/sabih-haider1/ntfstool) | 📖 [Documentation](./FREE_USE_NOTICE.md) | 🐛 [Report Issues](https://github.com/sabih-haider1/ntfstool/issues) | 👨‍💻 [Developer Portfolio](https://sabih-ssy.vercel.app/)
 
 ## 💽 Installation
 
-Download the latest release from [GitHub Releases](https://github.com/ntfstool/ntfstool/releases).
+Download the latest release (coming soon - link will be provided).
 
 **No license key or activation required** - just download, install, and use!
 
