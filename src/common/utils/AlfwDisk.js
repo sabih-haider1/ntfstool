@@ -134,7 +134,7 @@ function reMountNtfs(index, force = false) {
                     var run_res = await execShellSudo(`mount_ntfs -o rw,auto,nobrowse,noowners,noatime ${link_dev} '${mount_path}'`);
                 } else if(info.typebundle == "exfat"){
                     // ExFAT native support - use diskutil mount (NO SUDO NEEDED)
-                    var run_res = await execShell(`diskutil mount -mountPoint '${mount_path}' ${link_dev}`);
+                    var run_res = await execShell(`diskutil mount ${link_dev}`);
                 }
             }else{
                 console.warn("UseMountType:Outer")
@@ -149,7 +149,7 @@ function reMountNtfs(index, force = false) {
                     }
                 } else if(info.typebundle == "exfat"){
                     // ExFAT native support - use diskutil mount (NO SUDO NEEDED)
-                    var run_res = await execShell(`diskutil mount -mountPoint '${mount_path}' ${link_dev}`);
+                    var run_res = await execShell(`diskutil mount ${link_dev}`);
                 }
 
             }
