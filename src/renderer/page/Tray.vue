@@ -169,10 +169,12 @@ export default {
         console.warn(this.$refs, "this.$refsa")
         this.resetSize();
 
-        ipcRenderer.on("ChangeLangEvent", (e, lang) => {
+        // Store listener references for proper cleanup
+        this._changeLangHandler = (e, lang) => {
             console.warn("tray wind ChangeLangEvent", lang);
             this.$i18n.locale = lang;
-        });
+        };
+        ipcRenderer.on("ChangeLangEvent", this._changeLangHandler);
 
         remote.getCurrentWindow().on('focus', function () {
             console.warn("TrayWindow focus");
@@ -182,17 +184,38 @@ export default {
             });
         })
 
-        ipcRenderer.on(AlConst.GlobalViewUpdate, () => {
+        this._globalViewUpdateHandler = () => {
             this.diskList = getStoreForDiskList();
             console.warn(`${AlConst.GlobalViewUpdate} come tray ...`, this.diskList);
             this.resetSize();
-        });
+        };
+        ipcRenderer.on(AlConst.GlobalViewUpdate, this._globalViewUpdateHandler);
 
-        ipcRenderer.on("OpenShare", () => {
+        this._openShareHandler = () => {
             this.openShare();
-        });
+        };
+        ipcRenderer.on("OpenShare", this._openShareHandler);
+    },
+    beforeUnmount() {
+        // Clean up IPC event listeners to prevent memory leaks
+        if (this._changeLangHandler) {
+            ipcRenderer.removeListener("ChangeLangEvent", this._changeLangHandler);
+        }
+        if (this._globalViewUpdateHandler) {
+            ipcRenderer.removeListener(AlConst.GlobalViewUpdate, this._globalViewUpdateHandler);
+        }
+        if (this._openShareHandler) {
+            ipcRenderer.removeListener("OpenShare", this._openShareHandler);
+        }
     },
     methods: {
+        refreshDevice() {
+            var _this = this;
+            updateDisklist(function () {
+                _this.diskList = getStoreForDiskList();
+                console.log('[Tray.vue] refreshDevice() called, updating disk list...')
+            });
+        },
         uMountDisk(item) {
             var _this = this;
             console.warn(item, "select_item");

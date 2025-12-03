@@ -126,7 +126,7 @@ export default {
     Diskmountedsuccessfully: "Disk mounted successfully",
     Mountfailed: "Mount failed",
     Onlyntfsdisksneedtobemounted: "Only NTFS and ExFAT disks need to be mounted. This disk is already accessible by macOS.",
-    OnlySupportedDisksneedtobemounted: "Only NTFS and ExFAT drives are supported for mounting.",
+    OnlySupportedDisksneedtobemounted: "Only NTFS and ExFAT disks are supported for mounting.",
     Thediskisnotmounted: "The disk is not mounted",
     NoFuseinstallation: "No Fuse installation package has been found yet, ready to go to the official website to download manually",
     ConfirmConfigtoreset: "Confirm to reset all configurations to default",
@@ -148,7 +148,7 @@ export default {
     click_can_forbid:"Click can be forbidden",
     cancel_usb_notify:"Cancel USB notification?",
     canceled_usb_notify:"Notification cancelled",
-    Automatically_mount_NTFS_disk:"Automatically mount NTFS and ExFAT disk",
+    Automatically_mount_NTFS_disk:"Automatically mount NTFS and ExFAT disks",
     Sorryitisnotsupported:"Sorry, users with normal permissions are not currently supported (please use an administrator account to run the software)",
     
     languages: [

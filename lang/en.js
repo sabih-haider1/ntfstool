@@ -53,7 +53,7 @@ export default {
     "NoMsg": "No Message",
     "OuterDisk": "External Disk",
     "Install": "Install",
-    "SystemDiskCanotUnmount": "System Disk Cannot Unmount",
+    "SystemDiskCannotUnmount": "System Disk Cannot Unmount",
     "UnmountorMountDisk": "Unmount or Mount Disk",
     "UnMount": "Unmount",
     "Mount": "Mount",
@@ -107,5 +107,5 @@ export default {
     reinstall: "Reinstall",
     checked_kext_sign_err: "Checked Kext Sign Err",
     agree_text: "Agree Text",
-    OnlySupportedDisksneedtobemounted: "Only NTFS and ExFAT drives are supported for mounting.",
+    OnlySupportedDisksneedtobemounted: "Only NTFS and ExFAT disks are supported for mounting.",
 }

@@ -37,7 +37,7 @@ let mainConfig = {
       'element-ui': path.join(__dirname, 'empty-module.js'),
       'element-plus': path.join(__dirname, 'empty-module.js'),
       'vue$': path.join(__dirname, 'empty-module.js'),
-      'vue-router': path.join(__dirname, 'empty-module.js'),
+      'vue-router$': path.join(__dirname, 'empty-module.js'),
       'vuex': path.join(__dirname, 'empty-module.js'),
       'vue-i18n': path.join(__dirname, 'empty-module.js')
     },

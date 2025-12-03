@@ -146,17 +146,20 @@ export default {
             console.warn('[Dialog.vue] Could not disable zoom:', e.message);
         }
 
-        ipcRenderer.on("ChangeLangEvent", (e, lang) => {
+        // Store listener references for proper cleanup
+        this._changeLangHandler = (e, lang) => {
             console.warn("dialog wind ChangeLangEvent", lang);
             this.$i18n.locale = lang;
-        });
+        };
+        ipcRenderer.on("ChangeLangEvent", this._changeLangHandler);
 
-        ipcRenderer.on("NotSudoerEvent", (e, arg) => {
+        this._notSudoerHandler = (e, arg) => {
             console.warn("dialog NotSudoerEvent", arg);
             alert(this.$i18n.t('Sorryitisnotsupported'));
-        });
+        };
+        ipcRenderer.on("NotSudoerEvent", this._notSudoerHandler);
 
-        ipcRenderer.on("ShowDialogEvent", (event, arg) => {
+        this._showDialogHandler = (event, arg) => {
             saveLog.info(arg, "Dialog ShowDialogEvent");
             if (arg == "showSudo") {
                 _this.showSudo();
@@ -167,7 +170,20 @@ export default {
             } else {
                 _this.showAbout();
             }
-        });
+        };
+        ipcRenderer.on("ShowDialogEvent", this._showDialogHandler);
+    },
+    beforeUnmount() {
+        // Clean up IPC event listeners to prevent memory leaks
+        if (this._changeLangHandler) {
+            ipcRenderer.removeListener("ChangeLangEvent", this._changeLangHandler);
+        }
+        if (this._notSudoerHandler) {
+            ipcRenderer.removeListener("NotSudoerEvent", this._notSudoerHandler);
+        }
+        if (this._showDialogHandler) {
+            ipcRenderer.removeListener("ShowDialogEvent", this._showDialogHandler);
+        }
     },
     methods: {
         test(){
@@ -252,11 +268,9 @@ export default {
 
             this.btnDisable = true;
 
-            setTimeout(function () {
+            setTimeout(() => {
                 this.btnDisable = false;
             }, 10000);
-
-            console.warn(this.workpwd,"this.workpwd")
 
             checkSudoPassword(this.workpwd).then(res => {
                 this.btnDisable = false;
@@ -311,7 +325,7 @@ export default {
         installfuse(){
             console.warn(fuse_pkg,"fuse_pkgB")
             if (fs.existsSync(fuse_pkg)) {
-                shell.openItem(fuse_pkg);
+                shell.openPath(fuse_pkg);
             }else{
                 alert(this.$i18n.t('NoFuseinstallation'));
                 shell.openExternal("https://osxfuse.github.io/")

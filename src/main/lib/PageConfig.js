@@ -391,7 +391,8 @@ const openHomePage = (show_force) => {
                 nodeIntegration: true,
                 contextIsolation: false,
                 enableRemoteModule: true,
-                webSecurity: false
+                // Enable webSecurity in production, disable in development for local file access
+                webSecurity: process.env.NODE_ENV === 'production'
             },
             // transparent: true
         })

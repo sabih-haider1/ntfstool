@@ -24,7 +24,7 @@ const {autoMountNtfsDisk} = require("@/common/utils/AlfwDisk")
 import {unitTimesToRun, queueExec, filterNtfsNeedMountByDiskList} from '@/common/utils/AlfwCommon.js'
 import {AlConst} from '@/common/utils/AlfwConst'
 
-const {_} = require('lodash')
+const _ = require('lodash')
 
 import {ipcRenderer} from 'electron'
 const remote = require('@electron/remote')

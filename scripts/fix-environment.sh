@@ -82,7 +82,7 @@ fi
 # Step 3: Use nvm to delete prefix if needed
 echo ""
 echo -e "${BLUE}Ensuring nvm is properly configured...${NC}"
-if command -v nvm &> /dev/null; then
+if type nvm &> /dev/null; then
     nvm use --delete-prefix 20 2>/dev/null || nvm use 20
     echo -e "${GREEN}✓ nvm configured correctly${NC}"
 else
@@ -92,7 +92,7 @@ fi
 # Step 4: Create/update project .npmrc
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Step 3: Creating project .npmrc for legacy peer deps..."
+echo "Step 4: Creating project .npmrc for legacy peer deps..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 cat > .npmrc << 'EOF'

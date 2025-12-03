@@ -53,7 +53,7 @@ export default {
     "NoMsg": "Keine Nachricht",
     "OuterDisk": "Externe Festplatte",
     "Install": "Installieren",
-    "SystemDiskCanotUnmount": "Systemfestplatte kann nicht ausgehängt werden",
+    "SystemDiskCannotUnmount": "Systemfestplatte kann nicht ausgehängt werden",
     "UnmountorMountDisk": "Festplatte aushängen oder einbinden",
     "UnMount": "Aushängen",
     "Mount": "Einbinden",

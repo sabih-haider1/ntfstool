@@ -1,0 +1,3 @@
+review:
+  export_format: markdown
+  export_path: review.md

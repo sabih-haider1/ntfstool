@@ -18,7 +18,7 @@
  * distribution in the file COPYING); if not, write to the service@ntfstool.com
  */
 import {savePassword,execShell,execShellSudo,checkSudoPassword} from '@/common/utils/AlfwShell'
-import {getStoreForDiskList,setStoreForDiskList,getMountType,watchStatus,ignoreItem,delIgnoreItem,fixUnclear} from '@/common/utils/AlfwStore'
+import {getStore,getStoreForDiskList,setStoreForDiskList,getMountType,watchStatus,ignoreItem,delIgnoreItem,fixUnclear} from '@/common/utils/AlfwStore'
 import {AlConst} from "@/common/utils/AlfwConst";
 const saveLog = require('electron-log');
 const {getDiskInfo} = require('diskutil')
@@ -288,7 +288,26 @@ export function uMountDisk(item) {
             // NTFS and ExFAT unmounting
             if (typeof item.info.typebundle != "undefined" && (item.info.typebundle == "ntfs" || item.info.typebundle == "exfat")) {
                 console.warn(item, `[${item.info.typebundle.toUpperCase()}]uMountDisk start +++++++++++++++++++++TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT`)
-                resolve(await execShellSudo(`umount ${dev_path}`));
+                
+                // Unmount the device
+                var unmountResult = await execShellSudo(`umount ${dev_path}`);
+                
+                // Clean up orphaned mount directory for inner mode
+                var UseMountType = getStore("UseMountType");
+                if (UseMountType == "inner" && item.info && item.info.mountpoint) {
+                    var mountPath = item.info.mountpoint;
+                    // Only remove if it's in /Volumes and was created by us
+                    if (mountPath && mountPath.startsWith('/Volumes/')) {
+                        try {
+                            await execShellSudo(`rmdir '${mountPath}' 2>/dev/null || true`);
+                            console.log(`Cleaned up mount directory: ${mountPath}`);
+                        } catch (e) {
+                            console.warn(`Could not remove mount directory ${mountPath}:`, e);
+                        }
+                    }
+                }
+                
+                resolve(unmountResult);
             } else {
                 console.warn(item, "eject uMountDisk start +++++++++++++++++++++TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
                 resolve(await execShellSudo(`diskutil eject ${get_safe_ejst_disk_name(dev_path)}`));

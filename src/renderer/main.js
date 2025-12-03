@@ -55,13 +55,6 @@ const app = createApp(App)
 // Configure axios
 app.config.globalProperties.$http = axios
 
-// Global error handler
-app.config.errorHandler = (err, instance, info) => {
-  console.error('[Vue Error Handler]', err)
-  console.error('[Vue Error Info]', info)
-  console.error('[Vue Error Stack]', err.stack)
-}
-
 // Use plugins
 console.log('[Renderer] Registering ElementPlus...')
 app.use(ElementPlus)
@@ -73,7 +66,6 @@ console.log('[Renderer] Registering i18n...')
 app.use(i18n)
 
 // Production configuration
-app.config.productionTip = false
 app.config.performance = false
 
 // CRITICAL: Disable Vue devtools in Electron to prevent router rendering errors
@@ -90,10 +82,15 @@ if (typeof window !== 'undefined') {
   window.__VUE_DEVTOOLS_GLOBAL_HOOK_REPLAY__ = null
 }
 
-// Suppress Vue Router devtools errors in Electron environment
-app.config.warnHandler = () => {}
+// Suppress only devtools-related warnings in Electron environment
+app.config.warnHandler = (msg) => {
+  if (msg.includes('__vrv_devtools') || msg.includes('devtools')) {
+    return // Suppress devtools warnings
+  }
+  console.warn('[Vue warn]:', msg) // Log other warnings
+}
 
-// Global error handler
+// Global error handler (consolidated from above)
 app.config.errorHandler = (err, instance, info) => {
   // Suppress devtools-related errors in Electron
   if (err.message?.includes('__vrv_devtools') || 

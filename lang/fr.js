@@ -53,7 +53,7 @@ export default {
     NoMsg: "Aucun message",
     OuterDisk: "Disque externe",
     Install: "Installer",
-    SystemDiskCanotUnmount: "Le disque système ne peut pas être démonté",
+    SystemDiskCannotUnmount: "Le disque système ne peut pas être démonté",
     UnmountorMountDisk: "Démonter ou monter le disque",
     UnMount: "Démonter",
     Mount: "Monter",

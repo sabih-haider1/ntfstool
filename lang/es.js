@@ -53,7 +53,7 @@ export default {
     "NoMsg": "Ninguno",
     "OuterDisk": "Disco externo",
     "Install": "Instalar",
-    "SystemDiskCanotUnmount": "El disco del sistema no se puede desmontar",
+    "SystemDiskCannotUnmount": "El disco del sistema no se puede desmontar",
     "UnmountorMountDisk": "Desmontar o montar disco",
     "UnMount": "Desmontar",
     "Mount": "Montar",

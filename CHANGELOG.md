@@ -90,8 +90,8 @@ If you're migrating from a previous version:
 2. **All features enabled** - Every feature is available to all users
 3. **ExFAT support** - Now supports both NTFS and ExFAT drives seamlessly
 4. **Modern UI** - Enjoy the refreshed macOS Monterey-style interface
-3. **Updates via GitHub** - Updates are now distributed through GitHub Releases
-4. **Open source** - Full source code available for review and contribution
+5. **Updates via GitHub** - Updates are now distributed through GitHub Releases
+6. **Open source** - Full source code available for review and contribution
 
 ## Migration Notes for Developers
 

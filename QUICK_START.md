@@ -3,7 +3,7 @@
 ## For Users
 
 ### Installation
-1. Download the latest release from [GitHub Releases](https://github.com/ntfstool/ntfstool/releases)
+1. Download the latest release from [GitHub Releases](https://github.com/sabih-haider1/ntfstool/releases)
 2. Open the `.dmg` file and drag NTFSTool to Applications
 3. Launch the app - **no license key required!**
 

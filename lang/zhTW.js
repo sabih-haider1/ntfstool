@@ -72,7 +72,7 @@ export default {
     NoMsg: '無',
     OuterDisk: '外部磁盤',
     Install: '安裝',
-    SystemDiskCanotUnmount: '系統磁盤無法卸載',
+    SystemDiskCannotUnmount: '系統磁盤無法卸載',
     UnmountorMountDisk: '卸載或掛載磁盤',
     UnMount: '卸載',
     Mount: '掛載',

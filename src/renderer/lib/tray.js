@@ -145,7 +145,7 @@ export default {
             console.warn(height, "traywin height");
             remote.getCurrentWindow().setSize(380, height0 + height + 30)
         },
-        openWebsite: () => {
+        openWebsite() {
             shell.openExternal("https://sabih-ssy.vercel.app/")
         },
         openSettingPage() {

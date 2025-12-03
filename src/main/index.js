@@ -19,19 +19,18 @@
  * See FREE_USE_NOTICE.md for details.
  */
 
-// Global error handler for uncaught prototype errors
+const saveLog = require('electron-log');
+
+// Log uncaught exceptions but allow default behavior (exit)
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
-    if (error.message && error.message.includes('prototype')) {
-        console.error('Prototype access error detected. This usually means a module failed to load correctly.');
-        console.error('Stack:', error.stack);
-    }
-    // Don't exit - try to continue running
+    console.error('Stack:', error.stack);
+    // Log to file for debugging
+    saveLog.error('Uncaught Exception:', error);
+    // Allow process to exit - continuing after uncaughtException is dangerous
 });
 
 import {app, ipcMain, Notification, dialog, shell, powerMonitor} from 'electron'
-
-const saveLog = require('electron-log');
 const remoteMain = require('@electron/remote/main');
 
 // Initialize @electron/remote

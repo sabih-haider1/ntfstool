@@ -43,7 +43,7 @@ The original project was developed to provide convenient NTFS disk management fo
 This fork is maintained by the NTFS Tool community. Contributions are welcome!
 
 **Modified by**: Community Contributors
-**Fork Repository**: [Your Repository URL]
+**Fork Repository**: https://github.com/sabih-haider1/ntfstool
 **Original Project**: ntfstool
 
 ## Disclaimer

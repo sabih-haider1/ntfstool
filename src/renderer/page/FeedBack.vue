@@ -99,11 +99,13 @@
             disableZoom(require('electron').webFrame);
             this.version = getPackageVersion();
 
-            ipcRenderer.on("ChangeLangEvent", (e, lang) => {
+            // Store listener reference for proper cleanup
+            this._changeLangHandler = (e, lang) => {
                 console.warn("feedback wind ChangeLangEvent", lang);
                 this.$i18n.locale = lang;
                 this.lang = lang;
-            });
+            };
+            ipcRenderer.on("ChangeLangEvent", this._changeLangHandler);
 
             getSystemInfo().then(json => {
                 var pasysteminfo_parmrams = Object.keys(json).map(function (key) {
@@ -112,6 +114,12 @@
                 this.serial_number = json.serial_number;
                 this.os_version = json.os_version;
             });
+        },
+        beforeUnmount() {
+            // Clean up IPC event listeners to prevent memory leaks
+            if (this._changeLangHandler) {
+                ipcRenderer.removeListener("ChangeLangEvent", this._changeLangHandler);
+            }
         },
         methods: {
             sendEmail(){

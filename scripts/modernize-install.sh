@@ -108,7 +108,9 @@ fi
 # Run migration checker
 echo ""
 echo "🔍 Running Vue 3 migration checker..."
-if [ -f "scripts/vue3-migration-check.js" ]; then
+if ! command -v node &> /dev/null; then
+    echo -e "${YELLOW}⚠ Node.js not found, skipping migration checker${NC}"
+elif [ -f "scripts/vue3-migration-check.js" ]; then
     node scripts/vue3-migration-check.js
 else
     echo -e "${YELLOW}⚠ Migration checker not found${NC}"
