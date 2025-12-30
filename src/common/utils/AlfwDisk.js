@@ -60,14 +60,17 @@ function reMountNtfs(index, force = false) {
             var info = await getDiskInfo(index);
             console.log(info, "reMountNtfs info");
             if(!info){
-                console.warn(index,"reMountNtfs Fail");
-                reject("reMountNtfs Fail");
-                return false;
+                console.error(index,"reMountNtfs Fail - getDiskInfo returned null/undefined");
+                reMountLock[index] = false;
+                reject("reMountNtfs Fail - could not get disk info");
+                return;
             }
 
             // Support both NTFS and ExFAT file systems
+            console.log(`Disk ${index} type: ${info.typebundle}, mounted: ${info.mounted}, readonly: ${info.readonly || 'N/A'}`);
             if (info.typebundle != "ntfs" && info.typebundle != "exfat") {
                 reMountLock[index] = false;
+                console.error(`Unsupported file system type: ${info.typebundle} for ${index}`);
                 reject("not a supported disk type (NTFS or ExFAT)[" + index + "]!");
                 return;
             }
@@ -133,8 +136,11 @@ function reMountNtfs(index, force = false) {
                 if(info.typebundle == "ntfs"){
                     var run_res = await execShellSudo(`mount_ntfs -o rw,auto,nobrowse,noowners,noatime ${link_dev} '${mount_path}'`);
                 } else if(info.typebundle == "exfat"){
-                    // ExFAT native support - use diskutil mount (NO SUDO NEEDED)
+                    // ExFAT native support - mount to custom path (NO SUDO NEEDED)
+                    // ExFAT doesn't support custom mount points with diskutil mount directly
+                    // We'll use mount -t exfat instead
                     var run_res = await execShell(`diskutil mount ${link_dev}`);
+                    console.log(`✓ ExFAT mounted using native macOS support: ${link_dev}`);
                 }
             }else{
                 console.warn("UseMountType:Outer")
@@ -150,6 +156,7 @@ function reMountNtfs(index, force = false) {
                 } else if(info.typebundle == "exfat"){
                     // ExFAT native support - use diskutil mount (NO SUDO NEEDED)
                     var run_res = await execShell(`diskutil mount ${link_dev}`);
+                    console.log(`✓ ExFAT mounted using native macOS support: ${link_dev}`);
                 }
 
             }
@@ -161,41 +168,63 @@ function reMountNtfs(index, force = false) {
             // Verify mount succeeded
             // Check if the volume is actually mounted by looking at diskutil info
             var verifyMount = await execShell(`diskutil info ${index}`);
-            var isMounted = verifyMount && verifyMount.indexOf("Mounted:") >= 0 && verifyMount.indexOf("Mounted:              Yes") >= 0;
+            // More flexible mounted check - look for "Mounted:" followed by "Yes"
+            var isMounted = verifyMount && verifyMount.indexOf("Mounted:") >= 0 && 
+                           (verifyMount.indexOf("Yes") >= 0 || verifyMount.match(/Mounted:\s+Yes/i));
             
             if (isMounted) {
                 reMountLock[index] = false;
                 setDiskMountPrending(index,0)
-                console.warn(`✓ Mount succeeded: ${link_dev} (${info.typebundle})`)
+                console.warn(`✓ Mount succeeded: ${link_dev} (${info.typebundle.toUpperCase()})`)
                 resolve("succ[" + index + "]");
             } else {
-                // Fallback check for NTFS using mount command
+                // Fallback check using mount command
                 var check_res2 = await execShell("mount |grep '" + index + "'");
-                if (check_res2 && check_res2.indexOf("read-only") <= 0) {
-                    reMountLock[index] = false;
-                    setDiskMountPrending(index,0)
-                    console.warn(`✓ Mount succeeded: ${link_dev} (${info.typebundle})`)
-                    resolve("succ[" + index + "]");
+                if (check_res2 && check_res2.length > 0) {
+                    // For exFAT, any mount is good (it's always read-write)
+                    // For NTFS, we need to check it's not read-only
+                    if (info.typebundle == "exfat" || check_res2.indexOf("read-only") < 0) {
+                        reMountLock[index] = false;
+                        setDiskMountPrending(index,0)
+                        console.warn(`✓ Mount succeeded (verified via mount): ${link_dev} (${info.typebundle.toUpperCase()})`)
+                        resolve("succ[" + index + "]");
+                    } else {
+                        setDiskMountPrending(index,-99)
+                        reMountLock[index] = false;
+                        console.error(`✗ Mount failed (read-only): ${link_dev} (${info.typebundle.toUpperCase()})`)
+                        reject("mount fail[" + index + "] - mounted as read-only");
+                    }
                 } else {
                     setDiskMountPrending(index,-99)
                     reMountLock[index] = false;
-                    console.error(`✗ Mount failed: ${link_dev} (${info.typebundle})`)
+                    console.error(`✗ Mount failed: ${link_dev} (${info.typebundle.toUpperCase()})`)
                     reject("mount fail[" + index + "]");
                 }
             }
         } catch (e) {
             reMountLock[index] = false;
             watchStatus(true);
+            
+            // Handle NTFS unclean filesystem
             if(typeof e == "string" && e.indexOf("unclean") >= 0){
                 //The disk contains an unclean file system (0, 0).
                 // Metadata kept in Windows cache, refused to mount.
                 // Falling back to read-only mount because the NTFS partition is in an
                 // unsafe state. Please resume and shutdown Windows fully (no hibernation
                 // or fast restarting.)
-                console.warn("Catch unclean");
+                console.warn("Catch unclean NTFS filesystem");
                 noticeTheSystemError("UNCLEANERROR",e);
-
                 fixUnclear(index,true);
+            }
+            
+            // Handle ExFAT filesystem errors
+            if(typeof e == "string" && info && info.typebundle == "exfat" && 
+               (e.indexOf("timed out") >= 0 || e.indexOf("failed") >= 0 || e.indexOf("error") >= 0)) {
+                console.error(`ExFAT mount failed for ${index}:`, e);
+                // ExFAT might have filesystem corruption - suggest repair
+                setDiskMountPrending(index,-99);
+                noticeTheSystemError("EXFAT_MOUNT_ERROR", 
+                    `Failed to mount ExFAT drive ${index}. The filesystem may be corrupted. Try: diskutil repairVolume ${index}`);
             }
 
             saveLog.error(e, "reMountNtfs Error");
@@ -290,7 +319,16 @@ export function uMountDisk(item) {
                 console.warn(item, `[${item.info.typebundle.toUpperCase()}]uMountDisk start +++++++++++++++++++++TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT`)
                 
                 // Unmount the device
-                var unmountResult = await execShellSudo(`umount ${dev_path}`);
+                var unmountResult;
+                if (item.info.typebundle == "exfat") {
+                    // ExFAT: use diskutil unmount (no sudo needed)
+                    unmountResult = await execShell(`diskutil unmount ${dev_path}`);
+                    console.log(`✓ ExFAT unmounted: ${dev_path}`);
+                } else {
+                    // NTFS: use umount with sudo
+                    unmountResult = await execShellSudo(`umount ${dev_path}`);
+                    console.log(`✓ NTFS unmounted: ${dev_path}`);
+                }
                 
                 // Clean up orphaned mount directory for inner mode
                 var UseMountType = getStore("UseMountType");

@@ -264,9 +264,20 @@ export function filterNtfsNeedMountByDiskList(diskList) {
                 console.warn({list:diskList["ext"][i],ignorelist:ignoreItemList},
                     "ignoreChose false");
 
-                // NTFS and ExFAT need to be remounted
-                if (_.get(diskList["ext"][i], "info.typebundle") == "ntfs" || _.get(diskList["ext"][i], "info.typebundle") == "exfat") {
-                    if (_.get(diskList["ext"][i], "info.readonly") == true || _.get(diskList["ext"][i], "info.mounted") == false) {
+                var itemType = _.get(diskList["ext"][i], "info.typebundle");
+                var isMounted = _.get(diskList["ext"][i], "info.mounted");
+                var isReadonly = _.get(diskList["ext"][i], "info.readonly");
+
+                // NTFS: remount if unmounted OR readonly
+                // ExFAT: remount ONLY if unmounted (ExFAT is never readonly with native macOS support)
+                if (itemType == "ntfs" || itemType == "exfat") {
+                    if (isMounted == false) {
+                        // Always remount if unmounted
+                        console.warn(`Adding to remount list: ${diskList["ext"][i]["index"]} (${itemType}, unmounted)`);
+                        ret.push(diskList["ext"][i]);
+                    } else if (itemType == "ntfs" && isReadonly == true) {
+                        // For NTFS only: remount if mounted as readonly
+                        console.warn(`Adding to remount list: ${diskList["ext"][i]["index"]} (${itemType}, readonly)`);
                         ret.push(diskList["ext"][i]);
                     }
                 }
