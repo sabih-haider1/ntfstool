@@ -796,3 +796,120 @@ img {
     background: linear-gradient(180deg, #FF2D20 0%, #CC0012 100%);
     box-shadow: 0 2px 6px rgba(255, 59, 48, 0.3);
 }
+
+/* Theme Support */
+/* Dark Theme */
+body.theme-dark {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+}
+
+body.theme-dark .al-main {
+    background-color: #2d2d2d;
+}
+
+body.theme-dark .rheader,
+body.theme-dark .rheaderd {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-bottom-color: #3d3d3d;
+}
+
+body.theme-dark .rheader_1_t {
+    color: #b0b0b0;
+}
+
+body.theme-dark .rheader_1_t.tab_active {
+    color: #ffffff;
+    background-color: #3d3d3d;
+}
+
+body.theme-dark .lmain {
+    background-color: #2d2d2d;
+}
+
+body.theme-dark .main-from {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+}
+
+body.theme-dark .el-checkbox__label,
+body.theme-dark .el-radio__label {
+    color: #e0e0e0;
+}
+
+body.theme-dark .al_select {
+    background-color: #3d3d3d;
+    color: #e0e0e0;
+    border-color: #4d4d4d;
+}
+
+body.theme-dark .sub_form_title {
+    color: #a0a0a0;
+}
+
+body.theme-dark table td {
+    color: #e0e0e0;
+}
+
+/* System Theme - follows OS preference */
+@media (prefers-color-scheme: dark) {
+    body.theme-system {
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+    }
+
+    body.theme-system .al-main {
+        background-color: #2d2d2d;
+    }
+
+    body.theme-system .rheader,
+    body.theme-system .rheaderd {
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+        border-bottom-color: #3d3d3d;
+    }
+
+    body.theme-system .rheader_1_t {
+        color: #b0b0b0;
+    }
+
+    body.theme-system .rheader_1_t.tab_active {
+        color: #ffffff;
+        background-color: #3d3d3d;
+    }
+
+    body.theme-system .lmain {
+        background-color: #2d2d2d;
+    }
+
+    body.theme-system .main-from {
+        background-color: #2d2d2d;
+        color: #e0e0e0;
+    }
+
+    body.theme-system .el-checkbox__label,
+    body.theme-system .el-radio__label {
+        color: #e0e0e0;
+    }
+
+    body.theme-system .al_select {
+        background-color: #3d3d3d;
+        color: #e0e0e0;
+        border-color: #4d4d4d;
+    }
+
+    body.theme-system .sub_form_title {
+        color: #a0a0a0;
+    }
+
+    body.theme-system table td {
+        color: #e0e0e0;
+    }
+}
+
+/* Light Theme (default) */
+body.theme-light {
+    background-color: #ffffff;
+    color: #333333;
+}

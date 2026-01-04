@@ -101,6 +101,15 @@
     align-items: flex-end
 }
 
+/* Make interactive elements clickable */
+.lheader button,
+.lheader input,
+.lheader select,
+.lheader a,
+.lheader .clickable {
+    -webkit-app-region: no-drag;
+}
+
 .lheader div {
     height: 30px;
     width: 100%;
@@ -129,6 +138,7 @@
     cursor: pointer;
     background: #323948;
     margin: 5px 0;
+    -webkit-app-region: no-drag;
 }
 
 .lm-block-active {
@@ -206,6 +216,16 @@
     padding: 0;
 }
 
+/* Ensure buttons and tabs in drag region are clickable */
+.rheader button,
+.rheader input,
+.rheader select,
+.rheader a,
+.rheader .clickable,
+.rheader .rheader_1_t {
+    -webkit-app-region: no-drag;
+}
+
 .rheader_1 {
     text-align: center;
     display: flex;
@@ -225,10 +245,8 @@
     justify-content: center;
     flex-direction: column;
     text-align: center;
-    /*width: 100%;*/
     cursor: pointer;
     padding: 2px 6px 2px 6px;
-    /*background: green;*/
     margin-right: 10px;
     border-top-left-radius: 3px;
     border-top-right-radius: 3px;

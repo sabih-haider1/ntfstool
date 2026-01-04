@@ -12,6 +12,9 @@ export default {
     "disable": "Disable",
     "enable": "Enable",
     "Followthesystemstartup": "Follow System Startup",
+    "Showmenubaricon": "Show Menu Bar Icon",
+    "notice_cannot_do_disk01": "Warning: You will not be able to operate files directly from the menu bar after disabling",
+    "notice_cannot_do_disk02": "Tip: After enabling, the shortcut menu will be displayed in the upper right corner",
     "Howtodealwithmountingbadvolumes": "How to Deal with Mounting Bad Volumes",
     "Automaticprocessing": "Automatic Processing",
     "Promptbeforeprocessing": "Prompt before Processing",
@@ -81,6 +84,7 @@ export default {
     "Confirm": "Confirm",
 
     "system": "System",
+    "theme_notice": "Theme selection will apply to the application. Dark and System themes are currently in development.",
     active_status: "Active Status",
     actioning: "Actioning",
     user: "User",

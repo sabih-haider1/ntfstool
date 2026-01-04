@@ -43,10 +43,11 @@ let langNow = store.get("lang", "en")
 
 // Create i18n instance
 const i18n = createI18n({
-  legacy: false, // Use Composition API mode
+  legacy: true, // Use legacy mode for compatibility with Options API ($t, $i18n)
   locale: langNow,
   fallbackLocale: "en",
-  messages
+  messages,
+  globalInjection: true // Make $t available globally
 })
 
 // Create Vue app

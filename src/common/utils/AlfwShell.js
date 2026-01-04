@@ -66,6 +66,64 @@ export function execShell(shell) {
     })
 }
 
+/**
+ * exec shell with timeout (useful for older Macs where commands may hang)
+ * @param shell
+ * @param timeoutMs
+ * @returns {Promise<any>}
+ */
+export function execShellWithTimeout(shell, timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+        let timeoutHandle;
+        let completed = false;
+        
+        try {
+            const childProcess = exec(shell, (error, stdout, stderr) => {
+                if (completed) return;
+                completed = true;
+                clearTimeout(timeoutHandle);
+                
+                saveLog.log("execShellWithTimeout", {
+                    code: shell,
+                    stdout: stdout,
+                    stderr: stderr,
+                })
+                
+                if (stderr) {
+                    reject(stdout + error);
+                    return;
+                }
+
+                if (!stdout && stderr) {
+                    stdout = stderr;
+                }
+                resolve(stdout, stderr)
+            });
+            
+            timeoutHandle = setTimeout(() => {
+                if (completed) return;
+                completed = true;
+                
+                try {
+                    childProcess.kill();
+                } catch (e) {
+                    saveLog.error(e, "execShellWithTimeout - kill process");
+                }
+                
+                saveLog.error(`Command timeout after ${timeoutMs}ms: ${shell}`);
+                reject(new Error(`Command timeout after ${timeoutMs}ms`));
+            }, timeoutMs);
+        } catch (e) {
+            if (!completed) {
+                completed = true;
+                clearTimeout(timeoutHandle);
+            }
+            saveLog.error(e, "execShellWithTimeout");
+            reject(e);
+        }
+    })
+}
+
 
 /**
  * exec the shell code by root

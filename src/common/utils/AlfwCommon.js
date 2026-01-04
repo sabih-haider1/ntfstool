@@ -152,98 +152,118 @@ export function disableZoom(webFrame) {
 }
 
 /**
- * In a time_snap,call one,exec one,call n(n>1),exec the start,and exec the time_snap end.
- * @param callback
+ * Debounced execution - executes immediately on first call,
+ * then debounces subsequent calls within time window
+ * Professional pattern: leading + trailing debounce
+ * @param run_type - unique identifier for this debounce instance
+ * @param callback - function to execute
+ * @param time_snap - debounce window in ms (default 1000ms)
  */
-export function unitTimesToRun(run_type, callback, time_snap) {
-    if (typeof time_snap == "undefined") {
-        time_snap = 1000;
+export function unitTimesToRun(run_type, callback, time_snap = 1000) {
+    const stateKey = `_debounce_${run_type}`;
+    const timerKey = `_timer_${run_type}`;
+    
+    // Initialize state
+    if (!global[stateKey]) {
+        global[stateKey] = { pending: false, lastExec: 0 };
     }
-
-    if (typeof global[run_type] == "undefined") {
-        global[run_type] = 0;
+    
+    const state = global[stateKey];
+    const now = Date.now();
+    
+    // Clear existing timer
+    if (global[timerKey]) {
+        clearTimeout(global[timerKey]);
     }
-
-    var execHandle = function () {
+    
+    // Immediate execution on first call or if enough time has passed
+    if (!state.pending && (now - state.lastExec) >= time_snap) {
+        state.pending = true;
+        state.lastExec = now;
         callback();
+        
+        // Reset pending after execution
+        setTimeout(() => {
+            state.pending = false;
+        }, 100);
     }
-
-    if (global[run_type] == 0) {
-        execHandle();
-        global[run_type]++;
-        setTimeout(function () {
-            if (global[run_type] >= 2) {
-                execHandle();
-            }
-
-            global[run_type] = 0;
-        }, time_snap);
-    } else {
-        global[run_type]++;
-        console.warn(global[run_type], "unitTimesToRun more times,exec nothing...")
-    }
+    
+    // Schedule trailing execution
+    global[timerKey] = setTimeout(() => {
+        if (state.pending) {
+            state.lastExec = Date.now();
+            callback();
+        }
+        state.pending = false;
+    }, time_snap);
 }
 
 /**
- * Queue list to exec the callback
- * when timeout Queue will auto to exec next if callback no back to exec
- * @param type
- * @param callback
- * @param timeout
+ * Professional queue execution with proper error handling and timeout management
+ * Executes callbacks sequentially with configurable timeout
+ * @param type - queue identifier
+ * @param callback - function to execute (must call cb() when done)
+ * @param timeout - max execution time per task (default 30s)
  */
-export function queueExec(type, callback, timeout) {
-    var global_key = "queueExec_" + type;
-    if (typeof global[global_key] == "undefined") {
-        global[global_key] = [];
+export function queueExec(type, callback, timeout = 30000) {
+    const queueKey = `_queue_${type}`;
+    const processingKey = `_processing_${type}`;
+    
+    // Initialize queue
+    if (!global[queueKey]) {
+        global[queueKey] = [];
+        global[processingKey] = false;
     }
-    if (typeof timeout != "undefined") {
-        global["queueExec_Timeout"] = timeout;
-    }
-
-    if (typeof global["queueExec_Timeout"] == "undefined") {
-        global["queueExec_Timeout"] = 1000 * 60;//1 minute
-    }
-
-    if (callback === null) {
-        var _callback = global[global_key].pop();
-        if (typeof _callback == "function") {
-            _callback(function () {
-                clearTimeout(global["queueExec_TimeoutHandle"]);
-
-                queueExec(type, null)
-            });
-
-            clearTimeout(global["queueExec_TimeoutHandle"]);
-            global["queueExec_TimeoutHandle"] = setTimeout(function () {
-                clearTimeout(global["queueExec_TimeoutHandle"]);
-
-                queueExec(type, null)
-            }, global["queueExec_Timeout"])
-
-        } else {
-            global["queueExecStatus"] = 0;
+    
+    // Process next item in queue
+    const processNext = () => {
+        if (global[queueKey].length === 0) {
+            global[processingKey] = false;
+            return;
         }
-    } else {
-        if (typeof global["queueExecStatus"] == "undefined" || global["queueExecStatus"] == 0) {
-            global["queueExecStatus"] = 1;
-
-            callback(function () {
-                clearTimeout(global["queueExec_TimeoutHandle"]);
-
-                queueExec(type, null)
+        
+        global[processingKey] = true;
+        const task = global[queueKey].shift();
+        
+        let completed = false;
+        let timeoutHandle = null;
+        
+        // Timeout handler
+        timeoutHandle = setTimeout(() => {
+            if (!completed) {
+                console.warn(`[QueueExec] Task timeout after ${timeout}ms for ${type}`);
+                completed = true;
+                processNext();
+            }
+        }, timeout);
+        
+        // Execute task with completion callback
+        try {
+            task(() => {
+                if (!completed) {
+                    completed = true;
+                    clearTimeout(timeoutHandle);
+                    // Small delay before next to prevent CPU thrashing
+                    setTimeout(processNext, 10);
+                }
             });
-
-            clearTimeout(global["queueExec_TimeoutHandle"]);
-            global["queueExec_TimeoutHandle"] = setTimeout(function () {
-                clearTimeout(global["queueExec_TimeoutHandle"]);
-
-                queueExec(type, null)
-            }, global["queueExec_Timeout"])
-
-
-        } else {
-            global["queueExecStatus"]++;
-            global[global_key].push(callback);
+        } catch (err) {
+            console.error(`[QueueExec] Task error in ${type}:`, err);
+            if (!completed) {
+                completed = true;
+                clearTimeout(timeoutHandle);
+                processNext();
+            }
+        }
+    };
+    
+    // Add to queue
+    if (callback) {
+        global[queueKey].push(callback);
+        
+        // Start processing if not already running
+        if (!global[processingKey]) {
+            processNext();
         }
     }
 }

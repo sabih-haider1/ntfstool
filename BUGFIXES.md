@@ -2,7 +2,43 @@
 
 ## Issues Identified and Fixed
 
-### 1. **ExFAT Mount Verification Bug** (AlfwDisk.js:160-180)
+### 1. **ExFAT Mount Timeout on MacBook Air 2015** (AlfwShell.js, AlfwDisk.js)
+**Problem:** On older Macs (especially MacBook Air 2015 with macOS 12.7.6), the `diskutil mount` command would hang indefinitely when trying to mount ExFAT drives, causing the entire application to freeze and enter an infinite retry loop.
+
+**Root Causes:**
+- No timeout on shell commands - commands could hang forever
+- Disk info cache wasn't being cleared after mount attempts, causing stale data
+- No throttling between mount attempts - rapid retries overwhelmed the system
+- Mount command would hang without any error handling
+
+**Fixes Implemented:**
+1. **Added `execShellWithTimeout()` function** (AlfwShell.js:39-90)
+   - Wraps shell commands with configurable timeout (default 15s)
+   - Kills hanging processes automatically
+   - Prevents application freeze on slow/stuck commands
+
+2. **Mount Attempt Throttling** (AlfwDisk.js:51-68)
+   - Prevents mount attempts within 5 seconds of last attempt
+   - Tracks last mount attempt time per disk
+   - Eliminates infinite retry loops
+
+3. **Multi-Strategy ExFAT Mounting** (AlfwDisk.js:150-180, 188-218)
+   - Strategy 1: Quick mount with 5s timeout
+   - Strategy 2: Mount entire disk instead of partition
+   - Strategy 3: Verify volume and retry
+   - Provides clear error messages with recovery steps
+
+4. **Cache Invalidation** (AlfwDisk.js:72-75, diskutil/index.js:634-656)
+   - Clears disk info cache before/after mount operations
+   - Added `clearDiskInfoCache()` function to diskutil module
+   - Ensures fresh disk status after operations
+
+5. **Improved Force Unmount** (AlfwDisk.js:100-108)
+   - Uses `diskutil unmount force` for ExFAT
+   - 5-second timeout on unmount operations
+   - Better handling of already-unmounted drives
+
+### 2. **ExFAT Mount Verification Bug** (AlfwDisk.js:160-180)
 **Problem:** Mount verification was looking for exact string "Mounted:              Yes" with specific spacing, which could fail with different diskutil output formats.
 
 **Fix:** Updated verification logic to be more flexible:

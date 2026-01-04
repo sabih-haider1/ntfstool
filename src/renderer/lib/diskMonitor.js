@@ -58,88 +58,90 @@ export function fsListenMount() {
 
 
 export function updateDisklist(callback) {
-    console.warn("updateDisklist Start +++");
+    console.log("[DiskMonitor] Starting disk list update");
     unitTimesToRun("getDiskList", function () {
-        // console.warn("updateDisklist Start +++ ok 0");
         getDiskList().then((diskList) => {
-            console.warn(diskList,"updateDisklist0");
-            //filter inner unmounted
-            if (typeof diskList.inner != "undefined") {
+            console.log("[DiskMonitor] Received disk list, processing...");
+            
+            // Filter inner unmounted (optimized with early returns)
+            if (diskList.inner) {
                 diskList.inner = diskList.inner.filter(function (item) {
+                    // Fix readonly flag
                     if (_.get(item, "info.readonly") === true) {
                         item.info.readonly = false;
                     }
 
-                    if(!_.get(item, "info.typebundle")){
-                        return false;
-                    }
+                    const typebundle = _.get(item, "info.typebundle");
+                    if (!typebundle) return false;
 
-                    if (_.get(item, "info.typebundle").toLocaleLowerCase() === "apfs" && _.get(item, "info.mountpoint").toLocaleLowerCase().indexOf("/system/volumes/") >= 0) {
-                        return false;
-                    }
+                    const typeLower = typebundle.toLowerCase();
+                    const type = _.get(item, "type", "").toLowerCase();
+                    const mountpoint = _.get(item, "info.mountpoint", "").toLowerCase();
 
-                    if (_.get(item, "type").toLocaleLowerCase().indexOf("boot") >= 0  || _.get(item, "type").toLocaleLowerCase() == "efi" || _.get(item, "info.typebundle").toLocaleLowerCase() == "efi" || _.get(item, "info.typebundle").toLocaleLowerCase() == "msr") {
-                        return false;
-                    }
+                    // Filter out system volumes
+                    if (typeLower === "apfs" && mountpoint.includes("/system/volumes/")) return false;
+                    if (type.includes("boot") || typeLower === "efi" || typeLower === "msr") return false;
 
                     return true;
                 });
             }
 
-            //filter ext unmounted
-            if (typeof diskList.ext != "undefined") {
+            // Filter ext unmounted (optimized)
+            if (diskList.ext) {
                 diskList.ext = diskList.ext.filter(function (item) {
-                    if (_.get(item, "info.volumename").replace(/\s+/g, "").indexOf("nofilesystem") > 0) {
-                        return false;
-                    }
+                    const volumename = _.get(item, "info.volumename", "").replace(/\s+/g, "");
+                    if (volumename.includes("nofilesystem")) return false;
 
-                    if (_.get(item, "type").toLocaleLowerCase() == "efi" || _.get(item, "info.typebundle").toLocaleLowerCase() == "efi" || _.get(item, "info.typebundle").toLocaleLowerCase() == "msr") {
-                        return false;
-                    }
+                    const type = _.get(item, "type", "").toLowerCase();
+                    const typebundle = _.get(item, "info.typebundle", "").toLowerCase();
+                    
+                    if (type === "efi" || typebundle === "efi" || typebundle === "msr") return false;
 
                     return true;
                 });
             }
 
-            //filter image unmounted
-            if (typeof diskList.image != "undefined") {
-                diskList.image = diskList.image.filter(function (item) {
-                    if (_.get(item, "info.mounted") === false) {
-                        return false;
-                    } else {
-                        return true;
-                    }
-                });
+            // Filter image unmounted (only show mounted images)
+            if (diskList.image) {
+                diskList.image = diskList.image.filter(item => _.get(item, "info.mounted") === true);
             }
 
-            console.log(diskList, "getDiskList");
+            console.log("[DiskMonitor] Filtered disk list:", { 
+                inner: diskList.inner?.length || 0, 
+                ext: diskList.ext?.length || 0, 
+                image: diskList.image?.length || 0 
+            });
+            
             setStoreForDiskList(diskList, function () {
                 if (typeof callback == "function") callback()
-                //send the global view update
+                
+                // Send global view update
                 ipcRenderer.send("IPCMain", AlConst.GlobalViewUpdate);
 
-                // if (typeof data.Event != "undefined" && data.Event == "CreteFileEvent") {
-                //filter the ntfs to remount
-                var needReMountList = filterNtfsNeedMountByDiskList(diskList);
-                console.warn(needReMountList, "needReMountList");
+                // Process auto-mount for NTFS/ExFAT drives
+                const needReMountList = filterNtfsNeedMountByDiskList(diskList);
+                
                 if (needReMountList && needReMountList.length > 0) {
-                    for (var i in needReMountList) {
-                        //exec one by one
+                    console.log(`[DiskMonitor] ${needReMountList.length} drives need mounting`);
+                    
+                    needReMountList.forEach((disk, i) => {
                         queueExec("autoMountNtfsDisk", function (cb) {
-                            //set is auto_mount
                             if (getStore("auto_mount") == false) {
-                                console.warn("Set Can't AutoMount...");
+                                console.log("[DiskMonitor] Auto-mount disabled, skipping");
+                                cb();
                             } else {
-                                autoMountNtfsDisk(needReMountList[i], function () {
-                                    cb();
-                                });
+                                autoMountNtfsDisk(disk, cb);
                             }
-                        })
-                    }
+                        });
+                    });
+                } else {
+                    console.log("[DiskMonitor] No drives require mounting");
                 }
             });
+        }).catch(err => {
+            console.error("[DiskMonitor] Failed to get disk list:", err);
         });
-    })
+    }, 2000); // Increased debounce to 2s for better performance
 }
 
 // export function globalUpdate() {

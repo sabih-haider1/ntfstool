@@ -40,6 +40,15 @@
     letter-spacing: 0.5px;
 }
 
+/* Make buttons and interactive elements clickable in drag region */
+.lheader button,
+.lheader input,
+.lheader select,
+.lheader a,
+.lheader .clickable {
+    -webkit-app-region: no-drag;
+}
+
 .lmain {
     padding: 0;
 }
@@ -65,6 +74,7 @@
     transition: all 0.15s ease;
     border-radius: 6px;
     padding: 0 8px;
+    -webkit-app-region: no-drag;
 }
 
 .lm-block:hover {
@@ -152,6 +162,16 @@
     flex-direction: column;
     background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Make buttons and interactive elements clickable */
+.rheader button,
+.rheader input,
+.rheader select,
+.rheader a,
+.rheader .clickable,
+.rheader_1 div {
+    -webkit-app-region: no-drag;
 }
 
 .rheader_1 {

@@ -17,18 +17,51 @@
  * along with this program (in the main directory of the NTFS Tool
  * distribution in the file COPYING); if not, write to the service@ntfstool.com
  */
-import {savePassword,execShell,execShellSudo,checkSudoPassword} from '@/common/utils/AlfwShell'
+import {savePassword,execShell,execShellSudo,execShellWithTimeout,checkSudoPassword} from '@/common/utils/AlfwShell'
 import {getStore,getStoreForDiskList,setStoreForDiskList,getMountType,watchStatus,ignoreItem,delIgnoreItem,fixUnclear} from '@/common/utils/AlfwStore'
 import {AlConst} from "@/common/utils/AlfwConst";
 const saveLog = require('electron-log');
-const {getDiskInfo} = require('diskutil')
+const {getDiskInfo, clearDiskInfoCache} = require('diskutil')
 const {ntfstool_bin} = require('ntfstool')
 const {_} = require('lodash')
 import {ipcRenderer, remote} from 'electron'
 var reMountLock = [];//global lock
+var mountAttemptTime = {}; // Track last mount attempt time for each disk
 var fs= require("fs")
 import {noticeTheSystemError} from '@/common/utils/AlfwCommon'
 
+/**
+ * Attempt to repair an ExFAT volume
+ * @param {string} index - disk identifier (e.g., "disk5s1")
+ * @returns {Promise<boolean>} - true if repair succeeded
+ */
+export async function repairExFAT(index) {
+    const link_dev = `/dev/${index}`;
+    try {
+        console.log(`Attempting to repair ExFAT volume ${index}...`);
+        
+        // First try verification with repair flag
+        await execShellWithTimeout(`diskutil verifyVolume ${link_dev}`, 15000);
+        
+        // If verify passes, try repair
+        const repairRes = await execShellWithTimeout(`diskutil repairVolume ${link_dev}`, 30000);
+        console.log(`ExFAT repair completed for ${index}:`, repairRes);
+        return true;
+    } catch (err) {
+        console.error(`ExFAT repair failed for ${index}:`, err);
+        
+        // Try fsck_exfat directly as last resort
+        try {
+            console.log(`Trying direct fsck_exfat on ${index}...`);
+            await execShellSudo(`fsck_exfat -y ${link_dev}`, 30000);
+            console.log(`fsck_exfat repair completed for ${index}`);
+            return true;
+        } catch (fsckErr) {
+            console.error(`fsck_exfat also failed:`, fsckErr);
+            return false;
+        }
+    }
+}
 
 export function autoMountNtfsDisk(mountInfo,cb) {
     try{
@@ -46,17 +79,42 @@ export function autoMountNtfsDisk(mountInfo,cb) {
 }
 
 /**
- * reMountNtfs - Now supports both NTFS and ExFAT
- * @param index
- * @param force
+ * reMountNtfs - Optimized mount with exponential backoff
+ * @param index - disk identifier
+ * @param force - bypass throttling
  * @returns {Promise<any>}
  */
 function reMountNtfs(index, force = false) {
-    console.warn(index, "reMountNtfs start +++++++++++TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT++++++++++");
+    console.log(`[Mount] Starting mount for ${index}`);
+    
+    // Exponential backoff - prevent mount storms
+    const now = Date.now();
+    const lastAttempt = mountAttemptTime[index] || 0;
+    const timeSinceLastAttempt = now - lastAttempt;
+    
+    // Throttle based on number of failures (exponential backoff)
+    if (!mountAttemptTime[`${index}_failures`]) {
+        mountAttemptTime[`${index}_failures`] = 0;
+    }
+    
+    const failures = mountAttemptTime[`${index}_failures`];
+    const minWaitTime = Math.min(5000 * Math.pow(2, failures), 60000); // Max 60s
+    
+    if (timeSinceLastAttempt < minWaitTime && !force) {
+        console.log(`[Mount] Throttled ${index} - wait ${Math.round((minWaitTime - timeSinceLastAttempt) / 1000)}s (${failures} failures)`);
+        return Promise.reject(`Mount throttled - retry in ${Math.round((minWaitTime - timeSinceLastAttempt) / 1000)}s`);
+    }
+    
+    mountAttemptTime[index] = now;
     reMountLock[index] = true;
     var link_dev = "/dev/" + index;
     return new Promise(async (resolve, reject) => {
         try {
+            // Clear cache to get fresh disk info
+            if (typeof clearDiskInfoCache === 'function') {
+                clearDiskInfoCache(index);
+            }
+            
             var info = await getDiskInfo(index);
             console.log(info, "reMountNtfs info");
             if(!info){
@@ -95,12 +153,17 @@ function reMountNtfs(index, force = false) {
             if(_.get(info,"mounted") == true){
                 if(force === false && _.get(info,"readonly") != true){
                     reMountLock[index] = false;
-                    console.warn("succ[" + index + "] is Already Moubted!");
-                    resolve("succ[" + index + "] is Already Moubted!");
+                    console.warn("succ[" + index + "] is Already Mounted!");
+                    resolve("succ[" + index + "] is Already Mounted!");
                     return ;
                 }
 
-                await execShellSudo("diskutil unmount " + link_dev);
+                // Use force unmount for reliability, especially on older Macs
+                if(info.typebundle == "exfat"){
+                    await execShellWithTimeout("diskutil unmount force " + link_dev, 5000);
+                } else {
+                    await execShellSudo("diskutil unmount " + link_dev);
+                }
             }
 
 
@@ -136,11 +199,60 @@ function reMountNtfs(index, force = false) {
                 if(info.typebundle == "ntfs"){
                     var run_res = await execShellSudo(`mount_ntfs -o rw,auto,nobrowse,noowners,noatime ${link_dev} '${mount_path}'`);
                 } else if(info.typebundle == "exfat"){
-                    // ExFAT native support - mount to custom path (NO SUDO NEEDED)
-                    // ExFAT doesn't support custom mount points with diskutil mount directly
-                    // We'll use mount -t exfat instead
-                    var run_res = await execShell(`diskutil mount ${link_dev}`);
-                    console.log(`✓ ExFAT mounted using native macOS support: ${link_dev}`);
+                    // ExFAT native support - try multiple strategies for older Macs
+                    console.log(`Mounting ExFAT drive ${link_dev}...`);
+                    
+                    // Strategy 1: Try quick mount with short timeout
+                    try {
+                        var run_res = await execShellWithTimeout(`diskutil mount ${link_dev}`, 5000);
+                        console.log(`✓ ExFAT mounted successfully: ${link_dev}`);
+                    } catch (err1) {
+                        console.warn(`Quick mount failed, trying alternative methods...`);
+                        
+                        // Strategy 2: Try mounting the entire disk instead of partition
+                        try {
+                            // Get parent disk (e.g., disk3s1 -> disk3)
+                            const parentDisk = index.replace(/s\d+$/, '');
+                            console.log(`Trying to mount parent disk: ${parentDisk}`);
+                            var run_res = await execShellWithTimeout(`diskutil mountDisk ${parentDisk}`, 8000);
+                            console.log(`✓ ExFAT mounted via parent disk: ${parentDisk}`);
+                        } catch (err2) {
+                            // Strategy 3: Verify and repair the volume first
+                            console.warn(`Mount failed. The ExFAT drive may need repair.`);
+                            try {
+                                console.log(`Verifying ExFAT volume ${index}...`);
+                                const verifyRes = await execShellWithTimeout(`diskutil verifyVolume ${link_dev}`, 10000);
+                                console.log(`Verification result:`, verifyRes);
+                                
+                                // Try mount one more time after verification
+                                var run_res = await execShellWithTimeout(`diskutil mount ${link_dev}`, 8000);
+                                console.log(`✓ ExFAT mounted after verification: ${link_dev}`);
+                            } catch (err3) {
+                                console.error(`All ExFAT mount strategies failed for ${link_dev}`);
+                                
+                                // Check if it's a corruption issue (error -69845)
+                                const errorStr = JSON.stringify(err3);
+                                if (errorStr.includes('-69845') || errorStr.includes('verify or repair failed')) {
+                                    throw new Error(
+                                        `ExFAT drive corrupted (Error -69845).\n\n` +
+                                        `This usually happens when the drive wasn't safely ejected from Windows.\n\n` +
+                                        `To fix:\n` +
+                                        `1. Connect to Windows and run: chkdsk /F (safest for data)\n` +
+                                        `2. Or try in Terminal: sudo fsck_exfat -y /dev/${index}\n` +
+                                        `3. Or use Disk Utility's "First Aid"\n\n` +
+                                        `The drive works on Windows but macOS is stricter about filesystem errors.`
+                                    );
+                                } else {
+                                    throw new Error(
+                                        `ExFAT mount failed. Please try:\n` +
+                                        `1. Eject and reconnect the drive\n` +
+                                        `2. Run: diskutil repairVolume ${index}\n` +
+                                        `3. Check the drive on another computer`
+                                    );
+                                }
+                            }
+                        }
+                    }
                 }
             }else{
                 console.warn("UseMountType:Outer")
@@ -154,9 +266,60 @@ function reMountNtfs(index, force = false) {
                         var run_res = await execShellSudo(`${ntfstool_bin} ${link_dev} '${mount_path}' -o volname='${volumename}'  -olocal -oallow_other   -o auto_xattr -o hide_hid_files`);
                     }
                 } else if(info.typebundle == "exfat"){
-                    // ExFAT native support - use diskutil mount (NO SUDO NEEDED)
-                    var run_res = await execShell(`diskutil mount ${link_dev}`);
-                    console.log(`✓ ExFAT mounted using native macOS support: ${link_dev}`);
+                    // ExFAT native support - try multiple strategies for older Macs
+                    console.log(`Mounting ExFAT drive ${link_dev}...`);
+                    
+                    // Strategy 1: Try quick mount with short timeout
+                    try {
+                        var run_res = await execShellWithTimeout(`diskutil mount ${link_dev}`, 5000);
+                        console.log(`✓ ExFAT mounted successfully: ${link_dev}`);
+                    } catch (err1) {
+                        console.warn(`Quick mount failed, trying alternative methods...`);
+                        
+                        // Strategy 2: Try mounting the entire disk instead of partition
+                        try {
+                            // Get parent disk (e.g., disk3s1 -> disk3)
+                            const parentDisk = index.replace(/s\d+$/, '');
+                            console.log(`Trying to mount parent disk: ${parentDisk}`);
+                            var run_res = await execShellWithTimeout(`diskutil mountDisk ${parentDisk}`, 8000);
+                            console.log(`✓ ExFAT mounted via parent disk: ${parentDisk}`);
+                        } catch (err2) {
+                            // Strategy 3: Verify and repair the volume first
+                            console.warn(`Mount failed. The ExFAT drive may need repair.`);
+                            try {
+                                console.log(`Verifying ExFAT volume ${index}...`);
+                                const verifyRes = await execShellWithTimeout(`diskutil verifyVolume ${link_dev}`, 10000);
+                                console.log(`Verification result:`, verifyRes);
+                                
+                                // Try mount one more time after verification
+                                var run_res = await execShellWithTimeout(`diskutil mount ${link_dev}`, 8000);
+                                console.log(`✓ ExFAT mounted after verification: ${link_dev}`);
+                            } catch (err3) {
+                                console.error(`All ExFAT mount strategies failed for ${link_dev}`);
+                                
+                                // Check if it's a corruption issue (error -69845)
+                                const errorStr = JSON.stringify(err3);
+                                if (errorStr.includes('-69845') || errorStr.includes('verify or repair failed')) {
+                                    throw new Error(
+                                        `ExFAT drive corrupted (Error -69845).\n\n` +
+                                        `This usually happens when the drive wasn't safely ejected from Windows.\n\n` +
+                                        `To fix:\n` +
+                                        `1. Connect to Windows and run: chkdsk /F (safest for data)\n` +
+                                        `2. Or try in Terminal: sudo fsck_exfat -y /dev/${index}\n` +
+                                        `3. Or use Disk Utility's "First Aid"\n\n` +
+                                        `The drive works on Windows but macOS is stricter about filesystem errors.`
+                                    );
+                                } else {
+                                    throw new Error(
+                                        `ExFAT mount failed. Please try:\n` +
+                                        `1. Eject and reconnect the drive\n` +
+                                        `2. Run: diskutil repairVolume ${index}\n` +
+                                        `3. Check the drive on another computer`
+                                    );
+                                }
+                            }
+                        }
+                    }
                 }
 
             }
@@ -165,9 +328,17 @@ function reMountNtfs(index, force = false) {
 
             console.log(run_res, "run_res mount");
 
+            // Clear cache before verification to get fresh status
+            if (typeof clearDiskInfoCache === 'function') {
+                clearDiskInfoCache(index);
+            }
+            
+            // Wait a moment for the system to update mount status
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             // Verify mount succeeded
             // Check if the volume is actually mounted by looking at diskutil info
-            var verifyMount = await execShell(`diskutil info ${index}`);
+            var verifyMount = await execShellWithTimeout(`diskutil info ${index}`, 10000);
             // More flexible mounted check - look for "Mounted:" followed by "Yes"
             var isMounted = verifyMount && verifyMount.indexOf("Mounted:") >= 0 && 
                            (verifyMount.indexOf("Yes") >= 0 || verifyMount.match(/Mounted:\s+Yes/i));
@@ -175,7 +346,11 @@ function reMountNtfs(index, force = false) {
             if (isMounted) {
                 reMountLock[index] = false;
                 setDiskMountPrending(index,0)
-                console.warn(`✓ Mount succeeded: ${link_dev} (${info.typebundle.toUpperCase()})`)
+                // Reset failure counter on success
+                if (mountAttemptTime[`${index}_failures`]) {
+                    mountAttemptTime[`${index}_failures`] = 0;
+                }
+                console.log(`✓ Mount succeeded: ${link_dev} (${info.typebundle.toUpperCase()})`)
                 resolve("succ[" + index + "]");
             } else {
                 // Fallback check using mount command
@@ -186,18 +361,29 @@ function reMountNtfs(index, force = false) {
                     if (info.typebundle == "exfat" || check_res2.indexOf("read-only") < 0) {
                         reMountLock[index] = false;
                         setDiskMountPrending(index,0)
-                        console.warn(`✓ Mount succeeded (verified via mount): ${link_dev} (${info.typebundle.toUpperCase()})`)
-                        resolve("succ[" + index + "]");
-                    } else {
-                        setDiskMountPrending(index,-99)
-                        reMountLock[index] = false;
+                        // Reset failure counter on success
+                        if (mountAttemptTime[`${index}_failures`]) {
+                            mountAttemptTime[`${index}_failures`] = 0;
+                        }
+                        console.log(`✓ Mount succeeded (verified via mount): ${link_dev} (${info.typebundle.toUpperCase()})`)
+                        // Increment failure counter
+                        mountAttemptTime[`${index}_failures`] = (mountAttemptTime[`${index}_failures`] || 0) + 1;
                         console.error(`✗ Mount failed (read-only): ${link_dev} (${info.typebundle.toUpperCase()})`)
                         reject("mount fail[" + index + "] - mounted as read-only");
                     }
                 } else {
                     setDiskMountPrending(index,-99)
                     reMountLock[index] = false;
-                    console.error(`✗ Mount failed: ${link_dev} (${info.typebundle.toUpperCase()})`)
+                    // Increment failure counter
+                    mountAttemptTime[`${index}_failures`] = (mountAttemptTime[`${index}_failures`] || 0) + 1 index + "] - mounted as read-only");
+                    }
+                } else {
+                    setDiskMountPrending(index,-99)
+                    reMountLock[index] = false;
+               Increment failure counter
+            mountAttemptTime[`${index}_failures`] = (mountAttemptTime[`${index}_failures`] || 0) + 1;
+            
+            //      console.error(`✗ Mount failed: ${link_dev} (${info.typebundle.toUpperCase()})`)
                     reject("mount fail[" + index + "]");
                 }
             }

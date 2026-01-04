@@ -675,9 +675,14 @@ export default {
                 _this.refreshDevice();
             }).catch(err => {
                 console.error("mountDisk error:", err)
+                const errorMsg = String(err);
+                
                 if (err === "not need mount") {
                     alert(_this.$i18n.t('OnlySupportedDisksneedtobemounted') || 
                           `Only NTFS and ExFAT disks need to be mounted. The disk "${item.name}" (${item.info.typebundle || 'unknown'}) is already accessible.`);
+                } else if (errorMsg.includes('-69845') || errorMsg.includes('corrupted')) {
+                    // ExFAT corruption error - show detailed help
+                    alert(errorMsg);
                 } else {
                     alert(_this.$i18n.t('Mountfailed') || 'Mount failed: ' + err);
                 }

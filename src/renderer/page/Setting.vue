@@ -55,6 +55,16 @@
                             <div style="margin-bottom: 15px;">
                                 <el-checkbox v-model="auto_mount"  @change="changeAutoMount()"  :label="$t('Automatically_mount_NTFS_disk')" name="type"></el-checkbox>
                             </div>
+
+                            <div style="margin-bottom: 15px;">
+                                <el-checkbox v-model="show_menu"  @change="changeShowMenu()"  :label="$t('Showmenubaricon')" name="type"></el-checkbox>
+                                <div class="sub_form_title" v-if="!show_menu">
+                                    {{$t('notice_cannot_do_disk01')}}
+                                </div>
+                                <div class="sub_form_title" v-if="show_menu">
+                                    {{$t('notice_cannot_do_disk02')}}
+                                </div>
+                            </div>
                         </div>
                         <div class="main-from_div_1_2">
                             <div class="main-from_div_1_2_1">
@@ -75,10 +85,13 @@
                             </div>
                             <el-form-item class="main-from_div_1_2_2" :label="$t('theme')">
                                 <el-radio-group v-model="theme" @change="changeTheme()">
-                                    <el-radio label="0" disabled>{{$t('system')}}</el-radio>
-                                    <el-radio label="1" disabled>{{$t('dark')}}</el-radio>
+                                    <el-radio label="0">{{$t('system')}}</el-radio>
+                                    <el-radio label="1">{{$t('dark')}}</el-radio>
                                     <el-radio label="2">{{$t('light')}}</el-radio>
                                 </el-radio-group>
+                                <div class="sub_form_title">
+                                    {{$t('theme_notice')}}
+                                </div>
                             </el-form-item>
                         </div>
                     </div>
@@ -312,6 +325,20 @@ export default {
         } catch (e) {
             console.error('[Setting.vue] Error initializing lang_list:', e);
         }
+
+        // Apply saved theme on mount
+        try {
+            const themes = ['theme-system', 'theme-dark', 'theme-light'];
+            const themeClass = themes[parseInt(this.theme)];
+            
+            if (themeClass) {
+                document.body.classList.remove(...themes);
+                document.body.classList.add(themeClass);
+                console.log('[Setting.vue] Applied theme on mount:', themeClass);
+            }
+        } catch (e) {
+            console.error('[Setting.vue] Error applying theme:', e);
+        }
     },
     methods: {
         chose_block(select_block_id) {
@@ -352,6 +379,20 @@ export default {
         changeTheme() {
             console.warn("set theme", this.theme);
             store.set("theme", this.theme);
+            
+            // Apply theme class to document
+            const themes = ['theme-system', 'theme-dark', 'theme-light'];
+            const themeClass = themes[parseInt(this.theme)];
+            
+            // Remove all theme classes
+            document.body.classList.remove(...themes);
+            
+            // Add selected theme class
+            if (themeClass) {
+                document.body.classList.add(themeClass);
+            }
+            
+            // Update carousel if available
             try {
                 if (this.$refs.carouselObj) {
                     this.$refs.carouselObj.setActiveItem(this.theme);
@@ -359,6 +400,14 @@ export default {
             } catch (e) {
                 console.warn('[Setting.vue] Could not set carousel item:', e.message);
             }
+            
+            // Notify main process of theme change
+            ipcRenderer.send('IPCMain', {
+                name: 'ThemeChangeEvent',
+                data: this.theme
+            });
+            
+            console.log('[Setting.vue] Theme changed to:', themeClass);
         },
         changeLang() {
             console.log('[Setting.vue] Changing language to:', this.lang);
@@ -393,6 +442,14 @@ export default {
         changeAutoMount() {
             store.set("auto_mount", this.auto_mount);
             console.warn(store.get("auto_mount"),"changeAutoMount")
+        },
+        changeShowMenu() {
+            store.set("show_menu", this.show_menu);
+            ipcRenderer.send("IPCMain",{
+                name:"ShowMenuEvent",
+                data:this.show_menu
+            });
+            console.warn('[Setting.vue] Menu bar icon setting changed to:', this.show_menu);
         },
         changeMountShowMsg() {
             store.set("message.mount_show_msg", this.mount_show_msg);
